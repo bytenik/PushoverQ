@@ -97,6 +97,26 @@ namespace PushoverQ
             throw new NotImplementedException();
         }
 
+        public Task<T> Publish<T>(object message, Action<IContextConfigurator> configure)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<T> Publish<T>(object message, Action<IContextConfigurator> configure, TimeSpan timeout)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<T> Publish<T>(object message, Action<IContextConfigurator> configure, CancellationToken token)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<T> Publish<T>(object message, Action<IContextConfigurator> configure, TimeSpan timeout, CancellationToken token)
+        {
+            throw new NotImplementedException();
+        }
+
         #endregion
 
         #region Subscribe
@@ -157,6 +177,36 @@ namespace PushoverQ
         }
 
         public Task Subscribe<T>(string topic, string subscription, Consumes<T>.Context consumer)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task Subscribe<T>(Func<Consumes<T>.All> consumerFactory)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task Subscribe<T>(string subscription, Func<Consumes<T>.All> consumerFactory)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task Subscribe<T>(string topic, string subscription, Func<Consumes<T>.All> consumerFactory)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task Subscribe<T>(Func<Consumes<T>.Context> consumerFactory)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task Subscribe<T>(string subscription, Func<Consumes<T>.Context> consumerFactory)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Context> consumerFactory)
         {
             throw new NotImplementedException();
         }
