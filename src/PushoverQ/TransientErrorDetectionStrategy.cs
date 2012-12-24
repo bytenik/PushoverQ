@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Sockets;
 using System.ServiceModel;
-using System.Text;
 using Microsoft.Practices.TransientFaultHandling;
-using Microsoft.ServiceBus;
 using Microsoft.ServiceBus.Messaging;
 
-namespace MassTransit.Transports.MicrosoftServiceBus
+namespace PushoverQ
 {
     class TransientErrorDetectionStrategy : ITransientErrorDetectionStrategy
     {
@@ -28,7 +24,7 @@ namespace MassTransit.Transports.MicrosoftServiceBus
             if (ex is ServerTooBusyException)
                 return true;
             if (ex is MessagingCommunicationException)
-                return true;
+                return ((MessagingCommunicationException) ex).IsTransient;
             if (ex is CommunicationException)
                 return true;
             if (ex is SocketException)

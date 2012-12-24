@@ -25,6 +25,11 @@ namespace PushoverQ
         Task<T> Publish<T>(object message, CancellationToken token);
         Task<T> Publish<T>(object message, TimeSpan timeout, CancellationToken token);
 
+        Task<T> Publish<T>(object message, Action<IContextConfigurator> configure);
+        Task<T> Publish<T>(object message, Action<IContextConfigurator> configure, TimeSpan timeout);
+        Task<T> Publish<T>(object message, Action<IContextConfigurator> configure, CancellationToken token);
+        Task<T> Publish<T>(object message, Action<IContextConfigurator> configure, TimeSpan timeout, CancellationToken token);
+
         Task Subscribe<T>(Func<T, Task> handler);
         Task Subscribe<T>(string subscription, Func<T, Task> handler);
         Task Subscribe<T>(string topic, string subscription, Func<T, Task> handler);
@@ -38,5 +43,12 @@ namespace PushoverQ
         Task Subscribe<T>(Consumes<T>.Context consumer);
         Task Subscribe<T>(string subscription, Consumes<T>.Context consumer);
         Task Subscribe<T>(string topic, string subscription, Consumes<T>.Context consumer);
+
+        Task Subscribe<T>(Func<Consumes<T>.All> consumerFactory);
+        Task Subscribe<T>(string subscription, Func<Consumes<T>.All> consumerFactory);
+        Task Subscribe<T>(string topic, string subscription, Func<Consumes<T>.All> consumerFactory);
+        Task Subscribe<T>(Func<Consumes<T>.Context> consumerFactory);
+        Task Subscribe<T>(string subscription, Func<Consumes<T>.Context> consumerFactory);
+        Task Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Context> consumerFactory);
     }
 }
