@@ -94,22 +94,22 @@ namespace PushoverQ
 
         public Task<T> Publish<T>(object message, TimeSpan timeout, CancellationToken token)
         {
-            throw new NotImplementedException();
+            return Publish<T>(message, null, timeout, token);
         }
 
         public Task<T> Publish<T>(object message, Action<IContextConfigurator> configure)
         {
-            throw new NotImplementedException();
+            return Publish<T>(message, configure, Timeout.InfiniteTimeSpan, CancellationToken.None);
         }
 
         public Task<T> Publish<T>(object message, Action<IContextConfigurator> configure, TimeSpan timeout)
         {
-            throw new NotImplementedException();
+            return Publish<T>(message, configure, timeout, CancellationToken.None);
         }
 
         public Task<T> Publish<T>(object message, Action<IContextConfigurator> configure, CancellationToken token)
         {
-            throw new NotImplementedException();
+            return Publish<T>(message, configure, Timeout.InfiniteTimeSpan, token);
         }
 
         public Task<T> Publish<T>(object message, Action<IContextConfigurator> configure, TimeSpan timeout, CancellationToken token)
@@ -123,12 +123,12 @@ namespace PushoverQ
 
         public Task Subscribe<T>(Func<T, Task> handler)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.CompeteSubscriptionName, handler);
         }
 
         public Task Subscribe<T>(string subscription, Func<T, Task> handler)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, handler);
         }
 
         public Task Subscribe<T>(string topic, string subscription, Func<T, Task> handler)
@@ -138,12 +138,12 @@ namespace PushoverQ
 
         public Task Subscribe<T>(Func<T, IContext, Task> handler)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.CompeteSubscriptionName, handler);
         }
 
         public Task Subscribe<T>(string subscription, Func<T, IContext, Task> handler)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, handler);
         }
 
         public Task Subscribe<T>(string topic, string subscription, Func<T, IContext, Task> handler)
@@ -153,12 +153,12 @@ namespace PushoverQ
 
         public Task Subscribe<T>(Consumes<T>.All consumer)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.CompeteSubscriptionName, consumer);
         }
 
         public Task Subscribe<T>(string subscription, Consumes<T>.All consumer)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumer);
         }
 
         public Task Subscribe<T>(string topic, string subscription, Consumes<T>.All consumer)
@@ -168,12 +168,12 @@ namespace PushoverQ
 
         public Task Subscribe<T>(Consumes<T>.Context consumer)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.CompeteSubscriptionName, consumer);
         }
 
         public Task Subscribe<T>(string subscription, Consumes<T>.Context consumer)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumer);
         }
 
         public Task Subscribe<T>(string topic, string subscription, Consumes<T>.Context consumer)
@@ -183,12 +183,12 @@ namespace PushoverQ
 
         public Task Subscribe<T>(Func<Consumes<T>.All> consumerFactory)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.CompeteSubscriptionName, consumerFactory);
         }
 
         public Task Subscribe<T>(string subscription, Func<Consumes<T>.All> consumerFactory)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumerFactory);
         }
 
         public Task Subscribe<T>(string topic, string subscription, Func<Consumes<T>.All> consumerFactory)
@@ -198,12 +198,12 @@ namespace PushoverQ
 
         public Task Subscribe<T>(Func<Consumes<T>.Context> consumerFactory)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.CompeteSubscriptionName, consumerFactory);
         }
 
         public Task Subscribe<T>(string subscription, Func<Consumes<T>.Context> consumerFactory)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.TypeToTopicName(typeof (T)), subscription, consumerFactory);
         }
 
         public Task Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Context> consumerFactory)
