@@ -239,7 +239,7 @@ namespace PushoverQ
 
         public Task<ISubscription> Subscribe<T>(Func<T, Task> handler)
         {
-            return Subscribe(_settings.DefaultSubscriptionName, handler);
+            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), handler);
         }
 
         public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler)
@@ -249,7 +249,7 @@ namespace PushoverQ
 
         public Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler)
         {
-            return Subscribe(_settings.DefaultSubscriptionName, handler);
+            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), handler);
         }
 
         public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler)
@@ -259,7 +259,7 @@ namespace PushoverQ
 
         public Task<ISubscription> Subscribe<T>(Consumes<T>.Message consumer)
         {
-            return Subscribe(_settings.DefaultSubscriptionName, consumer);
+            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumer);
         }
 
         public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Message consumer)
@@ -269,7 +269,7 @@ namespace PushoverQ
 
         public Task<ISubscription> Subscribe<T>(Consumes<T>.Envelope consumer)
         {
-            return Subscribe(_settings.DefaultSubscriptionName, consumer);
+            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumer);
         }
 
         public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer)
@@ -279,7 +279,7 @@ namespace PushoverQ
 
         public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Message> consumerFactory)
         {
-            return Subscribe(_settings.DefaultSubscriptionName, consumerFactory);
+            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumerFactory);
         }
 
         public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Message> consumerFactory)
@@ -289,7 +289,7 @@ namespace PushoverQ
 
         public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory)
         {
-            return Subscribe(_settings.DefaultSubscriptionName, consumerFactory);
+            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumerFactory);
         }
 
         public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory)

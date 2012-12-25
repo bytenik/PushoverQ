@@ -9,6 +9,7 @@ namespace PushoverQ.Configuration
     class BusSettings
     {
         public Func<Type, string> TypeToTopicName { get; set; }
+        public Func<Type, string> TypeToSubscriptionName { get; set; }
         public string DefaultSubscriptionName { get; set; }
         public ISerializer Serializer { get; set; }
         public string ConnectionString { get; set; }
@@ -18,6 +19,7 @@ namespace PushoverQ.Configuration
         public BusSettings()
         {
             TypeToTopicName = type => type.FullName;
+            TypeToSubscriptionName = type => DefaultSubscriptionName;
             DefaultSubscriptionName = "default";
             MaxMessagesInFlight = 10;
             NumberOfReceiversPerSubscription = 3;
