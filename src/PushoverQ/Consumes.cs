@@ -15,7 +15,7 @@ namespace PushoverQ
 
         public interface Context
         {
-            Task Consume(T message, IContext envelope);
+            Task Consume(T message, ISendSettings envelope);
         }
     }
 }

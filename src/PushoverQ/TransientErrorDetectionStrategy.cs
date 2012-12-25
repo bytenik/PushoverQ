@@ -19,7 +19,7 @@ namespace PushoverQ
         {
             if (ex is ServerBusyException)
                 return true;
-            if (ex is TimeoutException)
+            if (ex is TimeoutException && !(ex is TaskExtensions.NaiveTimeoutException))
                 return true;
             if (ex is ServerTooBusyException)
                 return true;

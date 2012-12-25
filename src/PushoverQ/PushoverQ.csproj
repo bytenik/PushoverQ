@@ -57,11 +57,12 @@
     <Compile Include="Configuration\BusConfigurator.cs" />
     <Compile Include="Configuration\BusSettings.cs" />
     <Compile Include="Consumes.cs" />
-    <Compile Include="ContextConfiguration\ContextConfigurator.cs" />
-    <Compile Include="ContextConfiguration\IContextConfigurator.cs" />
+    <Compile Include="SendConfiguration\SendConfigurator.cs" />
+    <Compile Include="SendConfiguration\ISendConfigurator.cs" />
     <Compile Include="IBus.cs" />
-    <Compile Include="Context.cs" />
-    <Compile Include="IContext.cs" />
+    <Compile Include="SendConfiguration\SendSettings.cs" />
+    <Compile Include="SendConfiguration\ISendSettings.cs" />
+    <Compile Include="ISerializer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TaskExtensions.cs" />
     <Compile Include="TransientErrorDetectionStrategy.cs" />

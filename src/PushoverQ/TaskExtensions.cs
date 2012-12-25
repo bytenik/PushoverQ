@@ -31,6 +31,25 @@ namespace PushoverQ
             return tcs.Task;
         }
 
+        internal class NaiveTimeoutException : TimeoutException
+        {
+            public NaiveTimeoutException() : base()
+            {
+            }
+
+            public NaiveTimeoutException(string message)
+                : base(message)
+            {
+                
+            }
+
+            public NaiveTimeoutException(string message, Exception innerException)
+                : base(message, innerException)
+            {
+
+            }
+        }
+
         public static Task TimeoutAsync(TimeSpan timeout, CancellationToken cancellationToken)
         {
             if (timeout == TimeSpan.FromMilliseconds(-1))
@@ -44,7 +63,7 @@ namespace PushoverQ
             {
                 ctr.Dispose();
                 ((Timer)self).Dispose();
-                tcs.TrySetException(new TimeoutException());
+                tcs.TrySetException(new NaiveTimeoutException());
             });
 
             if (cancellationToken.CanBeCanceled)
