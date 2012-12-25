@@ -232,6 +232,11 @@ namespace PushoverQ
             return null;
         }
 
+        public Task<ISubscription> Subscribe<T>()
+        {
+            return Subscribe<T>(_settings.TypeToSubscriptionName(typeof(T)));
+        }
+
         public Task<ISubscription> Subscribe<T>(string subscription)
         {
             return Subscribe(_settings.TypeToTopicName(typeof (T)), subscription);

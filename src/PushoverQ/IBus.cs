@@ -32,7 +32,10 @@ namespace PushoverQ
         Task<T> Publish<T>(object message, Action<ISendConfigurator> configure, TimeSpan timeout, CancellationToken token);
 
         Task<ISubscription> Subscribe(string topic, string subscription);
-        
+
+        Task<ISubscription> Subscribe<T>();
+        Task<ISubscription> Subscribe<T>(string subscription);
+
         Task<ISubscription> Subscribe<T>(Func<T, Task> handler);
         Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler);
         Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler);
