@@ -89,6 +89,9 @@ namespace PushoverQ
             if(configure != null) configure(configurator);
             var sendSettings = configurator.SendSettings;
 
+            if(sendSettings.NeedsConfirmation)
+                throw new NotImplementedException();
+
             await _publishSemaphore.WaitAsync(timeout, token);
 
             try
