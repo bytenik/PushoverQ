@@ -57,6 +57,7 @@
     <Compile Include="Configuration\BusConfigurator.cs" />
     <Compile Include="Configuration\BusSettings.cs" />
     <Compile Include="Consumes.cs" />
+    <Compile Include="Envelope.cs" />
     <Compile Include="SendConfiguration\SendConfigurator.cs" />
     <Compile Include="SendConfiguration\ISendConfigurator.cs" />
     <Compile Include="IBus.cs" />

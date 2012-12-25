@@ -213,17 +213,17 @@ namespace PushoverQ
             throw new NotImplementedException();
         }
 
-        public Task<IDisposable> Subscribe<T>(Consumes<T>.Context consumer)
+        public Task<IDisposable> Subscribe<T>(Consumes<T>.Envelope consumer)
         {
             return Subscribe(_settings.CompeteSubscriptionName, consumer);
         }
 
-        public Task<IDisposable> Subscribe<T>(string subscription, Consumes<T>.Context consumer)
+        public Task<IDisposable> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer)
         {
             return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumer);
         }
 
-        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Consumes<T>.Context consumer)
+        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Consumes<T>.Envelope consumer)
         {
             throw new NotImplementedException();
         }
@@ -243,17 +243,17 @@ namespace PushoverQ
             throw new NotImplementedException();
         }
 
-        public Task<IDisposable> Subscribe<T>(Func<Consumes<T>.Context> consumerFactory)
+        public Task<IDisposable> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory)
         {
             return Subscribe(_settings.CompeteSubscriptionName, consumerFactory);
         }
 
-        public Task<IDisposable> Subscribe<T>(string subscription, Func<Consumes<T>.Context> consumerFactory)
+        public Task<IDisposable> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory)
         {
             return Subscribe(_settings.TypeToTopicName(typeof (T)), subscription, consumerFactory);
         }
 
-        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Context> consumerFactory)
+        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Envelope> consumerFactory)
         {
             throw new NotImplementedException();
         }

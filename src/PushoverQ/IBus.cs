@@ -41,15 +41,15 @@ namespace PushoverQ
         Task<IDisposable> Subscribe<T>(Consumes<T>.All consumer);
         Task<IDisposable> Subscribe<T>(string subscription, Consumes<T>.All consumer);
         Task<IDisposable> Subscribe<T>(string topic, string subscription, Consumes<T>.All consumer);
-        Task<IDisposable> Subscribe<T>(Consumes<T>.Context consumer);
-        Task<IDisposable> Subscribe<T>(string subscription, Consumes<T>.Context consumer);
-        Task<IDisposable> Subscribe<T>(string topic, string subscription, Consumes<T>.Context consumer);
+        Task<IDisposable> Subscribe<T>(Consumes<T>.Envelope consumer);
+        Task<IDisposable> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer);
+        Task<IDisposable> Subscribe<T>(string topic, string subscription, Consumes<T>.Envelope consumer);
 
         Task<IDisposable> Subscribe<T>(Func<Consumes<T>.All> consumerFactory);
         Task<IDisposable> Subscribe<T>(string subscription, Func<Consumes<T>.All> consumerFactory);
         Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.All> consumerFactory);
-        Task<IDisposable> Subscribe<T>(Func<Consumes<T>.Context> consumerFactory);
-        Task<IDisposable> Subscribe<T>(string subscription, Func<Consumes<T>.Context> consumerFactory);
-        Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Context> consumerFactory);
+        Task<IDisposable> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory);
+        Task<IDisposable> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory);
+        Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Envelope> consumerFactory);
     }
 }
