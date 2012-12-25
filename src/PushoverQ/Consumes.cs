@@ -8,7 +8,7 @@ namespace PushoverQ
 {
     public class Consumes<T>
     {
-        public interface All
+        public interface Message
         {
             Task Consume(T message);
         }

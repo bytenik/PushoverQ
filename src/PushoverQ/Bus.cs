@@ -179,16 +179,6 @@ namespace PushoverQ
 
         #region Subscribe
 
-        public Task<ISubscription> Subscribe<T>(Func<T, Task> handler)
-        {
-            return Subscribe(_settings.CompeteSubscriptionName, handler);
-        }
-
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler)
-        {
-            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, handler);
-        }
-
         private async Task CreateTopic(string topic)
         {
             try
@@ -225,98 +215,87 @@ namespace PushoverQ
 
         private IDictionary<string, ISet<MessageReceiver>> _receivers = new ConcurrentDictionary<string, ISet<MessageReceiver>>();
 
-        public async Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<T, Task> handler)
+        public async Task<ISubscription> Subscribe(string topic, string subscription)
         {
             await CreateTopic(topic);
             await CreateSubscription(topic, subscription);
 
-
-
             var path = topic + "/" + subscription;
             if(_receivers.ContainsKey(path))
                 _receivers[path] = new HashSet<MessageReceiver>();
-            if(_receivers[path].Count >= _settings.NumberOfReceiversPerSubscription)
+            if (_receivers[path].Count >= _settings.NumberOfReceiversPerSubscription)
                 return null;
 
-            var receiver = await Task<MessageReceiver>.Factory.FromAsync(_messagingFactory.BeginCreateMessageReceiver, _messagingFactory.EndCreateMessageReceiver, path, null);
-            throw new NotImplementedException();
+            var receiver = await RetryPolicy.ExecuteAsync(() => Task<MessageReceiver>.Factory.FromAsync(_messagingFactory.BeginCreateMessageReceiver, _messagingFactory.EndCreateMessageReceiver, path, null));
+            _receivers[path].Add(receiver);
+
+            return null;
         }
 
-        public Task<ISubscription> Subscribe<T>(Func<T, ISendSettings, Task> handler)
+        public Task<ISubscription> Subscribe<T>(string subscription)
         {
-            return Subscribe(_settings.CompeteSubscriptionName, handler);
+            return Subscribe(_settings.TypeToTopicName(typeof (T)), subscription);
         }
 
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, ISendSettings, Task> handler)
+        public Task<ISubscription> Subscribe<T>(Func<T, Task> handler)
         {
-            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, handler);
+            return Subscribe(_settings.DefaultSubscriptionName, handler);
         }
 
-        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<T, ISendSettings, Task> handler)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler)
         {
-            throw new NotImplementedException();
         }
 
-        public Task<ISubscription> Subscribe<T>(Consumes<T>.All consumer)
+        public Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler)
         {
-            return Subscribe(_settings.CompeteSubscriptionName, consumer);
+            return Subscribe(_settings.DefaultSubscriptionName, handler);
         }
 
-        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.All consumer)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler)
         {
-            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumer);
+
         }
 
-        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Consumes<T>.All consumer)
+        public Task<ISubscription> Subscribe<T>(Consumes<T>.Message consumer)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.DefaultSubscriptionName, consumer);
+        }
+
+        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Message consumer)
+        {
+            return Subscribe<T>(subscription, consumer.Consume);
         }
 
         public Task<ISubscription> Subscribe<T>(Consumes<T>.Envelope consumer)
         {
-            return Subscribe(_settings.CompeteSubscriptionName, consumer);
+            return Subscribe(_settings.DefaultSubscriptionName, consumer);
         }
 
         public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer)
         {
-            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumer);
+            return Subscribe<T>(subscription, consumer.Consume);
         }
 
-        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Consumes<T>.Envelope consumer)
+        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Message> consumerFactory)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.DefaultSubscriptionName, consumerFactory);
         }
 
-        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.All> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Message> consumerFactory)
         {
-            return Subscribe(_settings.CompeteSubscriptionName, consumerFactory);
-        }
-
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.All> consumerFactory)
-        {
-            return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumerFactory);
-        }
-
-        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.All> consumerFactory)
-        {
-            throw new NotImplementedException();
+            return Subscribe<T>(subscription, m => consumerFactory().Consume(m));
         }
 
         public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory)
         {
-            return Subscribe(_settings.CompeteSubscriptionName, consumerFactory);
+            return Subscribe(_settings.DefaultSubscriptionName, consumerFactory);
         }
 
         public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory)
         {
-            return Subscribe(_settings.TypeToTopicName(typeof (T)), subscription, consumerFactory);
+            return Subscribe<T>(subscription, (m, e) => consumerFactory().Consume(m, e));
         }
-
-        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Envelope> consumerFactory)
-        {
-            throw new NotImplementedException();
-        }
-
+    
         #endregion
 
         public void Dispose(bool disposing)
