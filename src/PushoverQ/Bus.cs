@@ -244,6 +244,7 @@ namespace PushoverQ
 
         public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler)
         {
+            return Subscribe<T>(subscription, (m, e) => handler(m));
         }
 
         public Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler)
