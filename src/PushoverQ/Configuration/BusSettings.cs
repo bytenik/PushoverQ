@@ -12,13 +12,15 @@ namespace PushoverQ.Configuration
         public string CompeteSubscriptionName { get; set; }
         public ISerializer Serializer { get; set; }
         public string ConnectionString { get; set; }
-        public int MaxMessagesInFlight { get; set; }
+        public uint MaxMessagesInFlight { get; set; }
+        public uint NumberOfReceiversPerSubscription { get; set; }
 
         public BusSettings()
         {
             TypeToTopicName = type => type.FullName;
             CompeteSubscriptionName = "default";
             MaxMessagesInFlight = 10;
+            NumberOfReceiversPerSubscription = 3;
         }
     }
 }

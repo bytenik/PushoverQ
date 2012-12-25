@@ -31,25 +31,25 @@ namespace PushoverQ
         Task<T> Publish<T>(object message, Action<ISendConfigurator> configure, CancellationToken token);
         Task<T> Publish<T>(object message, Action<ISendConfigurator> configure, TimeSpan timeout, CancellationToken token);
 
-        Task<IDisposable> Subscribe<T>(Func<T, Task> handler);
-        Task<IDisposable> Subscribe<T>(string subscription, Func<T, Task> handler);
-        Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<T, Task> handler);
-        Task<IDisposable> Subscribe<T>(Func<T, ISendSettings, Task> handler);
-        Task<IDisposable> Subscribe<T>(string subscription, Func<T, ISendSettings, Task> handler);
-        Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<T, ISendSettings, Task> handler);
+        Task<ISubscription> Subscribe<T>(Func<T, Task> handler);
+        Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler);
+        Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<T, Task> handler);
+        Task<ISubscription> Subscribe<T>(Func<T, ISendSettings, Task> handler);
+        Task<ISubscription> Subscribe<T>(string subscription, Func<T, ISendSettings, Task> handler);
+        Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<T, ISendSettings, Task> handler);
 
-        Task<IDisposable> Subscribe<T>(Consumes<T>.All consumer);
-        Task<IDisposable> Subscribe<T>(string subscription, Consumes<T>.All consumer);
-        Task<IDisposable> Subscribe<T>(string topic, string subscription, Consumes<T>.All consumer);
-        Task<IDisposable> Subscribe<T>(Consumes<T>.Envelope consumer);
-        Task<IDisposable> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer);
-        Task<IDisposable> Subscribe<T>(string topic, string subscription, Consumes<T>.Envelope consumer);
+        Task<ISubscription> Subscribe<T>(Consumes<T>.All consumer);
+        Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.All consumer);
+        Task<ISubscription> Subscribe<T>(string topic, string subscription, Consumes<T>.All consumer);
+        Task<ISubscription> Subscribe<T>(Consumes<T>.Envelope consumer);
+        Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer);
+        Task<ISubscription> Subscribe<T>(string topic, string subscription, Consumes<T>.Envelope consumer);
 
-        Task<IDisposable> Subscribe<T>(Func<Consumes<T>.All> consumerFactory);
-        Task<IDisposable> Subscribe<T>(string subscription, Func<Consumes<T>.All> consumerFactory);
-        Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.All> consumerFactory);
-        Task<IDisposable> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory);
-        Task<IDisposable> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory);
-        Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Envelope> consumerFactory);
+        Task<ISubscription> Subscribe<T>(Func<Consumes<T>.All> consumerFactory);
+        Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.All> consumerFactory);
+        Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.All> consumerFactory);
+        Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory);
+        Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory);
+        Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Envelope> consumerFactory);
     }
 }

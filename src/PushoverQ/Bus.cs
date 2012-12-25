@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,12 +25,14 @@ namespace PushoverQ
         private static readonly RetryPolicy RetryPolicy = new RetryPolicy<TransientErrorDetectionStrategy>(
             new ExponentialBackoff("Retry exponentially", int.MaxValue, TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(30), true));
 
-        public static IBus CreateBus(Action<BusConfigurator> configure)
+        public static async Task<IBus> CreateBus(Action<BusConfigurator> configure)
         {
             var configurator = new BusConfigurator();
             configure(configurator);
 
-            return new Bus(configurator.Settings);
+            var bus = new Bus(configurator.Settings);
+            await bus.Start();
+            return bus;
         }
 
         private Bus(BusSettings settings)
@@ -38,7 +41,12 @@ namespace PushoverQ
 
             _messagingFactory = MessagingFactory.CreateFromConnectionString(settings.ConnectionString);
             _namespaceManager = NamespaceManager.CreateFromConnectionString(settings.ConnectionString);
-            _publishSemaphore = new SemaphoreSlim(settings.MaxMessagesInFlight);
+            _publishSemaphore = new SemaphoreSlim((int) settings.MaxMessagesInFlight);
+        }
+
+        private async Task Start()
+        {
+            
         }
 
         #region Publish
@@ -171,92 +179,140 @@ namespace PushoverQ
 
         #region Subscribe
 
-        public Task<IDisposable> Subscribe<T>(Func<T, Task> handler)
+        public Task<ISubscription> Subscribe<T>(Func<T, Task> handler)
         {
             return Subscribe(_settings.CompeteSubscriptionName, handler);
         }
 
-        public Task<IDisposable> Subscribe<T>(string subscription, Func<T, Task> handler)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler)
         {
             return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, handler);
         }
 
-        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<T, Task> handler)
+        private async Task CreateTopic(string topic)
         {
+            try
+            {
+                var td = new TopicDescription(topic)
+                {
+                    EnableBatchedOperations = true,
+                    IsAnonymousAccessible = false,
+                    MaxSizeInMegabytes = 1024 * 5,
+                    RequiresDuplicateDetection = true,
+                };
+                await RetryPolicy.ExecuteAsync(() => Task<TopicDescription>.Factory.FromAsync(_namespaceManager.BeginCreateTopic, _namespaceManager.EndCreateTopic, td, null));
+            }
+            catch (MessagingEntityAlreadyExistsException)
+            {
+            }
+        }
+
+        private async Task CreateSubscription(string topic, string subscription)
+        {
+            try
+            {
+                var sd = new SubscriptionDescription(topic, subscription)
+                {
+                    RequiresSession = false,
+                    EnableBatchedOperations = true
+                };
+                await RetryPolicy.ExecuteAsync(() => Task<SubscriptionDescription>.Factory.FromAsync(_namespaceManager.BeginCreateSubscription, _namespaceManager.EndCreateSubscription, sd, null));
+            }
+            catch (MessagingEntityAlreadyExistsException)
+            {
+            }
+        }
+
+        private IDictionary<string, ISet<MessageReceiver>> _receivers = new ConcurrentDictionary<string, ISet<MessageReceiver>>();
+
+        public async Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<T, Task> handler)
+        {
+            await CreateTopic(topic);
+            await CreateSubscription(topic, subscription);
+
+
+
+            var path = topic + "/" + subscription;
+            if(_receivers.ContainsKey(path))
+                _receivers[path] = new HashSet<MessageReceiver>();
+            if(_receivers[path].Count >= _settings.NumberOfReceiversPerSubscription)
+                return null;
+
+            var receiver = await Task<MessageReceiver>.Factory.FromAsync(_messagingFactory.BeginCreateMessageReceiver, _messagingFactory.EndCreateMessageReceiver, path, null);
             throw new NotImplementedException();
         }
 
-        public Task<IDisposable> Subscribe<T>(Func<T, ISendSettings, Task> handler)
+        public Task<ISubscription> Subscribe<T>(Func<T, ISendSettings, Task> handler)
         {
             return Subscribe(_settings.CompeteSubscriptionName, handler);
         }
 
-        public Task<IDisposable> Subscribe<T>(string subscription, Func<T, ISendSettings, Task> handler)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, ISendSettings, Task> handler)
         {
             return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, handler);
         }
 
-        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<T, ISendSettings, Task> handler)
+        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<T, ISendSettings, Task> handler)
         {
             throw new NotImplementedException();
         }
 
-        public Task<IDisposable> Subscribe<T>(Consumes<T>.All consumer)
+        public Task<ISubscription> Subscribe<T>(Consumes<T>.All consumer)
         {
             return Subscribe(_settings.CompeteSubscriptionName, consumer);
         }
 
-        public Task<IDisposable> Subscribe<T>(string subscription, Consumes<T>.All consumer)
+        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.All consumer)
         {
             return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumer);
         }
 
-        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Consumes<T>.All consumer)
+        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Consumes<T>.All consumer)
         {
             throw new NotImplementedException();
         }
 
-        public Task<IDisposable> Subscribe<T>(Consumes<T>.Envelope consumer)
+        public Task<ISubscription> Subscribe<T>(Consumes<T>.Envelope consumer)
         {
             return Subscribe(_settings.CompeteSubscriptionName, consumer);
         }
 
-        public Task<IDisposable> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer)
+        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer)
         {
             return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumer);
         }
 
-        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Consumes<T>.Envelope consumer)
+        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Consumes<T>.Envelope consumer)
         {
             throw new NotImplementedException();
         }
 
-        public Task<IDisposable> Subscribe<T>(Func<Consumes<T>.All> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.All> consumerFactory)
         {
             return Subscribe(_settings.CompeteSubscriptionName, consumerFactory);
         }
 
-        public Task<IDisposable> Subscribe<T>(string subscription, Func<Consumes<T>.All> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.All> consumerFactory)
         {
             return Subscribe(_settings.TypeToTopicName(typeof(T)), subscription, consumerFactory);
         }
 
-        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.All> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.All> consumerFactory)
         {
             throw new NotImplementedException();
         }
 
-        public Task<IDisposable> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory)
         {
             return Subscribe(_settings.CompeteSubscriptionName, consumerFactory);
         }
 
-        public Task<IDisposable> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory)
         {
             return Subscribe(_settings.TypeToTopicName(typeof (T)), subscription, consumerFactory);
         }
 
-        public Task<IDisposable> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Envelope> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<Consumes<T>.Envelope> consumerFactory)
         {
             throw new NotImplementedException();
         }
@@ -265,7 +321,7 @@ namespace PushoverQ
 
         public void Dispose(bool disposing)
         {
-            
+
         }
 
         public void Dispose()
