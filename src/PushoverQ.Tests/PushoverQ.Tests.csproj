@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{FDD973FB-E499-4207-A834-1BC0289E69DF}</ProjectGuid>
+    <ProjectGuid>{27934EC9-8E77-419B-8640-8282B0692FDA}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>PushoverQ</RootNamespace>
-    <AssemblyName>PushoverQ</AssemblyName>
+    <RootNamespace>PushoverQ.Tests</RootNamespace>
+    <AssemblyName>PushoverQ.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -37,14 +37,20 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\Common.Logging.2.1.2\lib\net40\Common.Logging.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.Practices.TransientFaultHandling.Core">
-      <HintPath>..\packages\TransientFaultHandling.Core.5.1.1209.1\lib\NET4\Microsoft.Practices.TransientFaultHandling.Core.dll</HintPath>
+    <Reference Include="Common.Logging.NLog20">
+      <HintPath>..\packages\Common.Logging.NLog20.2.1.2\lib\net40\Common.Logging.NLog20.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.ServiceBus, Version=1.8.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\WindowsAzure.ServiceBus.1.8.0.0\lib\net40-full\Microsoft.ServiceBus.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.WindowsAzure.Configuration, Version=1.8.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.WindowsAzure.ConfigurationManager.1.8.0.0\lib\net35-full\Microsoft.WindowsAzure.Configuration.dll</HintPath>
+    </Reference>
+    <Reference Include="NLog">
+      <HintPath>..\packages\NLog.2.0.0.2000\lib\net40\NLog.dll</HintPath>
+    </Reference>
+    <Reference Include="nunit.framework">
+      <HintPath>..\packages\NUnit.2.6.2\lib\nunit.framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -57,24 +63,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Bus.cs" />
-    <Compile Include="ConcurrentMultiMap.cs" />
-    <Compile Include="ConcurrentSet.cs" />
-    <Compile Include="Configuration\BusConfigurator.cs" />
-    <Compile Include="Configuration\BusSettings.cs" />
-    <Compile Include="Consumes.cs" />
-    <Compile Include="Envelope.cs" />
-    <Compile Include="ISubscription.cs" />
-    <Compile Include="SendConfiguration\SendConfigurator.cs" />
-    <Compile Include="SendConfiguration\ISendConfigurator.cs" />
-    <Compile Include="IBus.cs" />
-    <Compile Include="SendConfiguration\SendSettings.cs" />
-    <Compile Include="SendConfiguration\ISendSettings.cs" />
-    <Compile Include="ISerializer.cs" />
+    <Compile Include="Tests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SubscriptionDisposer.cs" />
-    <Compile Include="TaskExtensions.cs" />
-    <Compile Include="TransientErrorDetectionStrategy.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PushoverQ\PushoverQ.csproj">
+      <Project>{fdd973fb-e499-4207-a834-1bc0289e69df}</Project>
+      <Name>PushoverQ</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

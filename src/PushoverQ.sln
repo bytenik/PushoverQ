@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushoverQ", "PushoverQ\PushoverQ.csproj", "{FDD973FB-E499-4207-A834-1BC0289E69DF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushoverQ.Tests", "PushoverQ.Tests\PushoverQ.Tests.csproj", "{27934EC9-8E77-419B-8640-8282B0692FDA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,6 +15,10 @@ Global
 		{FDD973FB-E499-4207-A834-1BC0289E69DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FDD973FB-E499-4207-A834-1BC0289E69DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FDD973FB-E499-4207-A834-1BC0289E69DF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{27934EC9-8E77-419B-8640-8282B0692FDA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{27934EC9-8E77-419B-8640-8282B0692FDA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{27934EC9-8E77-419B-8640-8282B0692FDA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{27934EC9-8E77-419B-8640-8282B0692FDA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

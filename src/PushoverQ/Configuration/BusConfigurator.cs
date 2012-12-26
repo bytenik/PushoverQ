@@ -14,5 +14,10 @@ namespace PushoverQ.Configuration
         {
             Settings = new BusSettings();
         }
+
+        public void WithConnectionString(string connectionString)
+        {
+            Settings.ConnectionString = connectionString;
+        }
     }
 }
