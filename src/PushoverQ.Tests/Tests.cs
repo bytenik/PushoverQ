@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using Microsoft.ServiceBus;
 using NLog;
 using NLog.Config;
@@ -37,7 +38,11 @@ namespace PushoverQ.Tests
                                              cfg.WithConnectionString(connBuilder.ToString());
                                          }).Result;
 
-            bus.Subscribe<string>(async m => Console.WriteLine(m)).Wait();
+            bool handled = false;
+            bus.Subscribe<string>(async m => handled = true).Wait();
+            bus.Publish("testing").Wait();
+            Thread.Sleep(5000);
+            Assert.True(handled);
         }
     }
 }

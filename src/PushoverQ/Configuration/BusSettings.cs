@@ -23,6 +23,7 @@ namespace PushoverQ.Configuration
             DefaultSubscriptionName = "default";
             MaxMessagesInFlight = 10;
             NumberOfReceiversPerSubscription = 3;
+            Serializer = new BinaryFormatterSerializer();
         }
     }
 }

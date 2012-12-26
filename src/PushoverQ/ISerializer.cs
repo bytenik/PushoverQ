@@ -10,7 +10,7 @@ namespace PushoverQ
     public interface ISerializer
     {
         void Serialize(object obj, Stream stream);
-        T Deserialize<T>(Stream stream);
+        T Deserialize<T>(Stream stream) where T : class;
         object Deserialize(Type type, Stream stream);
     }
 }

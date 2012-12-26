@@ -57,6 +57,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BinaryFormatterSerializer.cs" />
     <Compile Include="Bus.cs" />
     <Compile Include="ConcurrentMultiMap.cs" />
     <Compile Include="ConcurrentSet.cs" />

@@ -123,6 +123,7 @@ namespace PushoverQ
                                                                  if (sendSettings.Expiration != null)
                                                                      brokeredMessage.TimeToLive = sendSettings.Expiration.Value;
 
+                                                                 brokeredMessage.ContentType = message.GetType().FullName;
                                                                  await Task.Factory.FromAsync(sender.BeginSend, sender.EndSend, brokeredMessage, null)
                                                                      .WithTimeoutAndCancellation(timeout, token);
                                                              }
@@ -184,6 +185,8 @@ namespace PushoverQ
 
         private async Task CreateTopic(string topic)
         {
+            Logger.TraceFormat("Creating topic {0}", topic);
+            
             try
             {
                 var td = new TopicDescription(topic)
@@ -197,11 +200,14 @@ namespace PushoverQ
             }
             catch (MessagingEntityAlreadyExistsException)
             {
+                Logger.TraceFormat("Topic {0} already exists", topic);
             }
         }
 
         private async Task CreateSubscription(string topic, string subscription)
         {
+            Logger.TraceFormat("Creating subscription {0} for topic {1}", subscription, topic);
+
             try
             {
                 var sd = new SubscriptionDescription(topic, subscription)
@@ -213,6 +219,7 @@ namespace PushoverQ
             }
             catch (MessagingEntityAlreadyExistsException)
             {
+                Logger.TraceFormat("Subscription {0} for topic {1} already exists", subscription, topic);
             }
         }
 
@@ -262,6 +269,8 @@ namespace PushoverQ
 
         public async Task<ISubscription> Subscribe(string topic, string subscription)
         {
+            Logger.InfoFormat("Subscribing to topic: `{0}', subscription: `{1}'", topic, subscription);
+
             await CreateTopic(topic);
             await CreateSubscription(topic, subscription);
 
@@ -318,6 +327,8 @@ namespace PushoverQ
 
         public void Attach<T>(Func<T, Envelope, Task> handler) where T : class
         {
+            Logger.InfoFormat("Attaching handler for type `{0}'", typeof(T).FullName);
+
             Func<object, Envelope, Task> nongeneric = (m, e) => handler((T) m, e);
             _handlers.Add(typeof (T), nongeneric);
         }
