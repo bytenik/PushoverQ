@@ -87,7 +87,7 @@ namespace PushoverQ
         /// <param name="timeout">timeout after which to give up</param>
         /// <param name="token">token to monitor for cancellation</param>
         /// <returns></returns>
-        public static async Task<T> NaiveTimeoutAndCancellation<T>(this Task<T> task, TimeSpan timeout, CancellationToken token)
+        public static async Task<T> WithTimeoutAndCancellation<T>(this Task<T> task, TimeSpan timeout, CancellationToken token)
         {
             task.IgnoreExceptions();
 
@@ -108,7 +108,7 @@ namespace PushoverQ
         /// <param name="timeout">timeout after which to give up</param>
         /// <param name="token">token to monitor for cancellation</param>
         /// <returns></returns>
-        public static async Task NaiveTimeoutAndCancellation(this Task task, TimeSpan timeout, CancellationToken token)
+        public static async Task WithTimeoutAndCancellation(this Task task, TimeSpan timeout, CancellationToken token)
         {
             task.IgnoreExceptions();
 

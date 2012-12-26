@@ -7,6 +7,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Common.Logging;
 using Microsoft.Practices.TransientFaultHandling;
 using Microsoft.ServiceBus;
 using Microsoft.ServiceBus.Messaging;
@@ -24,6 +25,8 @@ namespace PushoverQ
         private readonly SemaphoreSlim _publishSemaphore;
         private static readonly RetryPolicy RetryPolicy = new RetryPolicy<TransientErrorDetectionStrategy>(
             new ExponentialBackoff("Retry exponentially", int.MaxValue, TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(30), true));
+
+        private static readonly ILog Logger = LogManager.GetCurrentClassLogger(); 
 
         public static async Task<IBus> CreateBus(Action<BusConfigurator> configure)
         {
@@ -105,7 +108,7 @@ namespace PushoverQ
             try
             {
                 var sender = await RetryPolicy.ExecuteAsync(() => Task<MessageSender>.Factory.FromAsync(_messagingFactory.BeginCreateMessageSender, _messagingFactory.EndCreateMessageSender, sendSettings.Topic, null)
-                       .NaiveTimeoutAndCancellation(timeout, token));
+                       .WithTimeoutAndCancellation(timeout, token));
 
                 await RetryPolicy.ExecuteAsync(async () =>
                                                          {
@@ -121,7 +124,7 @@ namespace PushoverQ
                                                                      brokeredMessage.TimeToLive = sendSettings.Expiration.Value;
 
                                                                  await Task.Factory.FromAsync(sender.BeginSend, sender.EndSend, brokeredMessage, null)
-                                                                     .NaiveTimeoutAndCancellation(timeout, token);
+                                                                     .WithTimeoutAndCancellation(timeout, token);
                                                              }
                                                          }, token);
 
@@ -213,7 +216,49 @@ namespace PushoverQ
             }
         }
 
-        private IDictionary<string, ISet<MessageReceiver>> _receivers = new ConcurrentDictionary<string, ISet<MessageReceiver>>();
+        private async Task<Exception> HandleMessage(object message, Envelope envelope)
+        {
+            if(message == null)
+                return null;
+
+            var types = new HashSet<Type>();
+            var type = message.GetType();
+
+            while(type != null)
+            {
+                types.Add(type);
+                type = type.BaseType;
+            }
+
+            types.UnionWith(types.SelectMany(t => t.GetInterfaces()));
+
+            var handlers = types.SelectMany(t =>
+                                                {
+                                                    ISet<Func<object, Envelope, Task>> set;
+                                                    return _handlers.TryGetValue(t, out set) ? set : Enumerable.Empty<Func<object, Envelope, Task>>();
+                                                });
+
+            try
+            {
+                await Task.WhenAll(handlers.Select(h => h(message, envelope)));
+            }
+            catch(AggregateException ae)
+            {
+                 foreach(var ex in ae.InnerExceptions)
+                     Logger.Warn("A consumer exception occurred", ex);
+                return ae;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn("A consumer exception occurred", ex);
+                return ex;
+            }
+
+            return null;
+        }
+
+        private readonly ConcurrentMultiMap<string, MessageReceiver> _receivers = new ConcurrentMultiMap<string, MessageReceiver>();
+        private readonly ConcurrentMultiMap<Type, Func<object, Envelope, Task>> _handlers = new ConcurrentMultiMap<Type, Func<object, Envelope, Task>>();
 
         public async Task<ISubscription> Subscribe(string topic, string subscription)
         {
@@ -221,13 +266,37 @@ namespace PushoverQ
             await CreateSubscription(topic, subscription);
 
             var path = topic + "/" + subscription;
-            if(_receivers.ContainsKey(path))
-                _receivers[path] = new HashSet<MessageReceiver>();
             if (_receivers[path].Count >= _settings.NumberOfReceiversPerSubscription)
                 return null;
 
             var receiver = await RetryPolicy.ExecuteAsync(() => Task<MessageReceiver>.Factory.FromAsync(_messagingFactory.BeginCreateMessageReceiver, _messagingFactory.EndCreateMessageReceiver, path, null));
-            _receivers[path].Add(receiver);
+            _receivers.Add(path, receiver);
+
+            CancellationToken token = new CancellationToken();
+            Task.Run(async () =>
+                               {
+                                   while(true)
+                                   {
+                                       token.ThrowIfCancellationRequested();
+
+                                       var brokeredMessage = await RetryPolicy.ExecuteAsync(() => Task<BrokeredMessage>.Factory.FromAsync(receiver.BeginReceive, receiver.EndReceive, TimeSpan.FromMinutes(5), null));
+                                       var type = Type.GetType(brokeredMessage.ContentType, false);
+                                       if (type == null)
+                                           await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
+
+                                       object message;
+                                       using (var stream = brokeredMessage.GetBody<Stream>())
+                                          message = _settings.Serializer.Deserialize(type, stream);
+
+                                       var envelope = new Envelope {};
+
+                                       var ex = await HandleMessage(message, envelope);
+                                       if (ex == null)
+                                           await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginComplete, brokeredMessage.EndComplete, null));
+                                       else
+                                           await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
+                                   }
+                               });
 
             return null;
         }
@@ -240,6 +309,17 @@ namespace PushoverQ
         public Task<ISubscription> Subscribe<T>(string subscription)
         {
             return Subscribe(_settings.TypeToTopicName(typeof (T)), subscription);
+        }
+
+        public void Attach<T>(Func<T, Task> handler)
+        {
+            Attach<T>((m, e) => handler(m));
+        }
+
+        public void Attach<T>(Func<T, Envelope, Task> handler)
+        {
+            Func<object, Envelope, Task> nongeneric = (m, e) => handler((T) m, e);
+            _handlers.Add(typeof (T), nongeneric);
         }
 
         public Task<ISubscription> Subscribe<T>(Func<T, Task> handler)
@@ -257,9 +337,12 @@ namespace PushoverQ
             return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), handler);
         }
 
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler)
+        public async Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler)
         {
+            Attach(handler);
+            await Subscribe<T>(subscription);
 
+            return null;
         }
 
         public Task<ISubscription> Subscribe<T>(Consumes<T>.Message consumer)

@@ -54,6 +54,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bus.cs" />
+    <Compile Include="ConcurrentMultiMap.cs" />
+    <Compile Include="ConcurrentSet.cs" />
     <Compile Include="Configuration\BusConfigurator.cs" />
     <Compile Include="Configuration\BusSettings.cs" />
     <Compile Include="Consumes.cs" />
