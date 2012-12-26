@@ -54,6 +54,12 @@ namespace PushoverQ
             return _dictionary.TryGetValue(key, out set) && set.Remove(value);
         }
 
+        public int CountValues(TKey key)
+        {
+            ConcurrentSet<TValue> set;
+            return _dictionary.TryGetValue(key, out set) ? set.Count : 0;
+        }
+
         public int Count { get { return _dictionary.Sum(kvp => kvp.Value.Count); } }
         public bool IsReadOnly { get { return false; } }
         public bool ContainsKey(TKey key)

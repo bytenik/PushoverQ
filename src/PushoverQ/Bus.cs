@@ -266,7 +266,7 @@ namespace PushoverQ
             await CreateSubscription(topic, subscription);
 
             var path = topic + "/" + subscription;
-            if (_receivers[path].Count >= _settings.NumberOfReceiversPerSubscription)
+            if (_receivers.CountValues(path) >= _settings.NumberOfReceiversPerSubscription)
                 return null;
 
             var receiver = await RetryPolicy.ExecuteAsync(() => Task<MessageReceiver>.Factory.FromAsync(_messagingFactory.BeginCreateMessageReceiver, _messagingFactory.EndCreateMessageReceiver, path, null));
@@ -301,7 +301,7 @@ namespace PushoverQ
             return null;
         }
 
-        public Task<ISubscription> Subscribe<T>()
+        public Task<ISubscription> Subscribe<T>() where T : class
         {
             return Subscribe<T>(_settings.TypeToSubscriptionName(typeof(T)));
         }
@@ -311,33 +311,33 @@ namespace PushoverQ
             return Subscribe(_settings.TypeToTopicName(typeof (T)), subscription);
         }
 
-        public void Attach<T>(Func<T, Task> handler)
+        public void Attach<T>(Func<T, Task> handler) where T : class
         {
             Attach<T>((m, e) => handler(m));
         }
 
-        public void Attach<T>(Func<T, Envelope, Task> handler)
+        public void Attach<T>(Func<T, Envelope, Task> handler) where T : class
         {
             Func<object, Envelope, Task> nongeneric = (m, e) => handler((T) m, e);
             _handlers.Add(typeof (T), nongeneric);
         }
 
-        public Task<ISubscription> Subscribe<T>(Func<T, Task> handler)
+        public Task<ISubscription> Subscribe<T>(Func<T, Task> handler) where T : class
         {
             return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), handler);
         }
 
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler) where T : class
         {
             return Subscribe<T>(subscription, (m, e) => handler(m));
         }
 
-        public Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler)
+        public Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler) where T : class
         {
             return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), handler);
         }
 
-        public async Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler)
+        public async Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler) where T : class
         {
             Attach(handler);
             await Subscribe<T>(subscription);
@@ -345,42 +345,42 @@ namespace PushoverQ
             return null;
         }
 
-        public Task<ISubscription> Subscribe<T>(Consumes<T>.Message consumer)
+        public Task<ISubscription> Subscribe<T>(Consumes<T>.Message consumer) where T : class
         {
             return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumer);
         }
 
-        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Message consumer)
+        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Message consumer) where T : class
         {
             return Subscribe<T>(subscription, consumer.Consume);
         }
 
-        public Task<ISubscription> Subscribe<T>(Consumes<T>.Envelope consumer)
+        public Task<ISubscription> Subscribe<T>(Consumes<T>.Envelope consumer) where T : class
         {
             return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumer);
         }
 
-        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer)
+        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer) where T : class
         {
             return Subscribe<T>(subscription, consumer.Consume);
         }
 
-        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Message> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Message> consumerFactory) where T : class
         {
             return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumerFactory);
         }
 
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Message> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Message> consumerFactory) where T : class
         {
             return Subscribe<T>(subscription, m => consumerFactory().Consume(m));
         }
 
-        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory) where T : class
         {
             return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumerFactory);
         }
 
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory)
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory) where T : class
         {
             return Subscribe<T>(subscription, (m, e) => consumerFactory().Consume(m, e));
         }

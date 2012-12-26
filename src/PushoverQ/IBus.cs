@@ -33,22 +33,22 @@ namespace PushoverQ
 
         Task<ISubscription> Subscribe(string topic, string subscription);
 
-        Task<ISubscription> Subscribe<T>();
+        Task<ISubscription> Subscribe<T>() where T : class;
         Task<ISubscription> Subscribe<T>(string subscription);
 
-        Task<ISubscription> Subscribe<T>(Func<T, Task> handler);
-        Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler);
-        Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler);
-        Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler);
+        Task<ISubscription> Subscribe<T>(Func<T, Task> handler) where T : class;
+        Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler) where T : class;
+        Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler) where T : class;
+        Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler) where T : class;
 
-        Task<ISubscription> Subscribe<T>(Consumes<T>.Message consumer);
-        Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Message consumer);
-        Task<ISubscription> Subscribe<T>(Consumes<T>.Envelope consumer);
-        Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer);
+        Task<ISubscription> Subscribe<T>(Consumes<T>.Message consumer) where T : class;
+        Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Message consumer) where T : class;
+        Task<ISubscription> Subscribe<T>(Consumes<T>.Envelope consumer) where T : class;
+        Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer) where T : class;
 
-        Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Message> consumerFactory);
-        Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Message> consumerFactory);
-        Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory);
-        Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory);
+        Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Message> consumerFactory) where T : class;
+        Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Message> consumerFactory) where T : class;
+        Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory) where T : class;
+        Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory) where T : class;
     }
 }

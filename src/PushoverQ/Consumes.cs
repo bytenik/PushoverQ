@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace PushoverQ
 {
-    public class Consumes<T>
+    public class Consumes<T> where T : class
     {
         public interface Message
         {

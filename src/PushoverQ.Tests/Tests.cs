@@ -4,6 +4,8 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using Microsoft.ServiceBus;
+using NLog;
+using NLog.Config;
 using NUnit.Framework;
 
 namespace PushoverQ.Tests
@@ -14,23 +16,28 @@ namespace PushoverQ.Tests
         [Test]
         public void BringUpBus()
         {
-            string ServerFQDN = "localhost";
+            string ServerFQDN = Environment.MachineName;
             int HttpPort = 9355;
             int TcpPort = 9354;
             string ServiceNamespace = "ServiceBusDefaultNamespace";
 
-            Common.Logging.LogManager.Adapter = new Common.Logging.NLog.NLogLoggerFactoryAdapter(new NameValueCollection());
+            Common.Logging.LogManager.Adapter = new Common.Logging.NLog.NLogLoggerFactoryAdapter(new NameValueCollection
+                                                                                                     {
+                                                                                                         {"configType", "FILE"},
+                                                                                                         {"configFile", "~/NLog.config"}
+                                                                                                     });
 
             ServiceBusConnectionStringBuilder connBuilder = new ServiceBusConnectionStringBuilder();
             connBuilder.ManagementPort = HttpPort;
             connBuilder.RuntimePort = TcpPort;
             connBuilder.Endpoints.Add(new UriBuilder() { Scheme = "sb", Host = ServerFQDN, Path = ServiceNamespace }.Uri);
             connBuilder.StsEndpoints.Add(new UriBuilder() { Scheme = "https", Host = ServerFQDN, Port = HttpPort, Path = ServiceNamespace }.Uri);
-
             IBus bus = Bus.CreateBus(cfg =>
                                          {
                                              cfg.WithConnectionString(connBuilder.ToString());
                                          }).Result;
+
+            bus.Subscribe<string>(async m => Console.WriteLine(m)).Wait();
         }
     }
 }
