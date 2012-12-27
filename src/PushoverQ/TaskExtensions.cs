@@ -120,5 +120,19 @@ namespace PushoverQ
 
             await Task.WhenAny(task, timeoutTask, cancelTask);
         }
+
+        public static Task<T> AsTask<T>(this Exception e)
+        {
+            var tcs = new TaskCompletionSource<T>();
+            tcs.SetException(e);
+            return tcs.Task;
+        }
+
+        public static Task AsTask(this Exception e)
+        {
+            var tcs = new TaskCompletionSource<object>();
+            tcs.SetException(e);
+            return tcs.Task;
+        }
     }
 }

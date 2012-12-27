@@ -259,7 +259,17 @@ namespace PushoverQ
 
             try
             {
-                await Task.WhenAll(handlers.Select(h => h(message, envelope)));
+                await Task.WhenAll(handlers.Select(h =>
+                                                       {
+                                                           try
+                                                           {
+                                                               return h(message, envelope);
+                                                           }
+                                                           catch (Exception ex)
+                                                           {
+                                                               return ex.AsTask();
+                                                           }
+                                                       }));
             }
             catch(AggregateException ae)
             {
