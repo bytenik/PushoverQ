@@ -42,6 +42,7 @@ namespace PushoverQ.Tests
             bus.Subscribe<string>(async m => evt.Set()).Wait();
             bus.Publish("testing").Wait();
             evt.Wait();
+            Thread.Sleep(5000);
         }
     }
 }

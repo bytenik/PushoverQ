@@ -102,8 +102,14 @@ namespace PushoverQ
 
             if(sendSettings.NeedsConfirmation)
                 throw new NotImplementedException();
+            
+            var messageId = Guid.NewGuid();
+
+            Logger.DebugFormat("BEGIN: Waiting to send message of type `{0}` and id `{1}' to the bus", message.GetType().FullName, messageId.ToString("n"));
 
             await _publishSemaphore.WaitAsync(timeout, token);
+
+            Logger.TraceFormat("GO: Sending message with id `{0}` to the bus", messageId.ToString("n"));
 
             try
             {
@@ -118,6 +124,7 @@ namespace PushoverQ
 
                                                                  ms.Seek(0, SeekOrigin.Begin);
                                                                  var brokeredMessage = new BrokeredMessage(ms, false);
+                                                                 brokeredMessage.MessageId = messageId.ToString("n");
                                                                  if (sendSettings.VisibleAfter != null)
                                                                      brokeredMessage.ScheduledEnqueueTimeUtc = sendSettings.VisibleAfter.Value;
                                                                  if (sendSettings.Expiration != null)
@@ -130,6 +137,8 @@ namespace PushoverQ
                                                          }, token);
 
                 await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(sender.BeginClose, sender.EndClose, null));
+
+                Logger.DebugFormat("END: Sent message with id `{0}' to the bus", messageId.ToString("n"));
             }
             finally
             {
@@ -227,6 +236,9 @@ namespace PushoverQ
         {
             if(message == null)
                 return null;
+            if (envelope == null) throw new ArgumentNullException("envelope");
+
+            Logger.DebugFormat("BEGIN: Handling message with id `{0:n}' and type `{1}'", envelope.MessageId, message.GetType().FullName);
 
             var types = new HashSet<Type>();
             var type = message.GetType();
@@ -252,14 +264,16 @@ namespace PushoverQ
             catch(AggregateException ae)
             {
                  foreach(var ex in ae.InnerExceptions)
-                     Logger.Warn("A consumer exception occurred", ex);
+                     Logger.WarnFormat("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
                 return ae;
             }
             catch (Exception ex)
             {
-                Logger.Warn("A consumer exception occurred", ex);
+                Logger.WarnFormat("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
                 return ex;
             }
+            
+            Logger.DebugFormat("END: Handled message with id `{0:n}'", envelope.MessageId);
 
             return null;
         }
@@ -306,7 +320,7 @@ namespace PushoverQ
                                        using (var stream = brokeredMessage.GetBody<Stream>())
                                           message = _settings.Serializer.Deserialize(type, stream);
 
-                                       var envelope = new Envelope {};
+                                       var envelope = new Envelope { MessageId = Guid.Parse(brokeredMessage.MessageId)};
 
                                        var ex = await HandleMessage(message, envelope);
                                        if (ex == null)
