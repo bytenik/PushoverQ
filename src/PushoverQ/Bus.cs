@@ -237,7 +237,7 @@ namespace PushoverQ
                 type = type.BaseType;
             }
 
-            types.UnionWith(types.SelectMany(t => t.GetInterfaces()));
+            types.UnionWith(types.SelectMany(t => t.GetInterfaces()).ToArray());
 
             var handlers = types.SelectMany(t =>
                                                 {
@@ -274,7 +274,7 @@ namespace PushoverQ
             await CreateTopic(topic);
             await CreateSubscription(topic, subscription);
 
-            var path = topic + "/" + subscription;
+            var path = topic + "/subscriptions/" + subscription;
             if (_receivers.CountValues(path) >= _settings.NumberOfReceiversPerSubscription)
                 return null;
 
@@ -289,9 +289,18 @@ namespace PushoverQ
                                        token.ThrowIfCancellationRequested();
 
                                        var brokeredMessage = await RetryPolicy.ExecuteAsync(() => Task<BrokeredMessage>.Factory.FromAsync(receiver.BeginReceive, receiver.EndReceive, TimeSpan.FromMinutes(5), null));
+                                       if (brokeredMessage.ContentType == null)
+                                       {
+                                           await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
+                                           continue;
+                                       }
+
                                        var type = Type.GetType(brokeredMessage.ContentType, false);
                                        if (type == null)
+                                       {
                                            await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
+                                           continue;
+                                       }
 
                                        object message;
                                        using (var stream = brokeredMessage.GetBody<Stream>())
@@ -305,7 +314,7 @@ namespace PushoverQ
                                        else
                                            await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
                                    }
-                               });
+                               }, token);
 
             return null;
         }

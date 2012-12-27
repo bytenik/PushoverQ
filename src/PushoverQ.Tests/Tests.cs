@@ -38,11 +38,10 @@ namespace PushoverQ.Tests
                                              cfg.WithConnectionString(connBuilder.ToString());
                                          }).Result;
 
-            bool handled = false;
-            bus.Subscribe<string>(async m => handled = true).Wait();
+            ManualResetEventSlim evt = new ManualResetEventSlim();
+            bus.Subscribe<string>(async m => evt.Set()).Wait();
             bus.Publish("testing").Wait();
-            Thread.Sleep(5000);
-            Assert.True(handled);
+            evt.Wait();
         }
     }
 }
