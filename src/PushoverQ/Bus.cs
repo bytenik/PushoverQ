@@ -26,7 +26,7 @@ namespace PushoverQ
         private static readonly RetryPolicy RetryPolicy = new RetryPolicy<TransientErrorDetectionStrategy>(
             new ExponentialBackoff("Retry exponentially", int.MaxValue, TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(30), true));
 
-        private static readonly ILog Logger = LogManager.GetCurrentClassLogger(); 
+        private static readonly ILog Logger = LogManager.GetCurrentClassLogger();
 
         public static async Task<IBus> CreateBus(Action<BusConfigurator> configure)
         {
@@ -44,12 +44,12 @@ namespace PushoverQ
 
             _messagingFactory = MessagingFactory.CreateFromConnectionString(settings.ConnectionString);
             _namespaceManager = NamespaceManager.CreateFromConnectionString(settings.ConnectionString);
-            _publishSemaphore = new SemaphoreSlim((int) settings.MaxMessagesInFlight);
+            _publishSemaphore = new SemaphoreSlim((int)settings.MaxMessagesInFlight);
         }
 
         private async Task Start()
         {
-            
+
         }
 
         #region Publish
@@ -97,12 +97,12 @@ namespace PushoverQ
         {
             var configurator = new SendConfigurator();
             configurator.ToTopic(_settings.TypeToTopicName(message.GetType()));
-            if(configure != null) configure(configurator);
+            if (configure != null) configure(configurator);
             var sendSettings = configurator.SendSettings;
 
-            if(sendSettings.NeedsConfirmation)
+            if (sendSettings.NeedsConfirmation)
                 throw new NotImplementedException();
-            
+
             var messageId = Guid.NewGuid();
 
             Logger.DebugFormat("BEGIN: Waiting to send message of type `{0}` and id `{1}' to the bus", message.GetType().FullName, messageId.ToString("n"));
@@ -149,7 +149,7 @@ namespace PushoverQ
         #region Publish<T> wrapper overloads
         public Task<T> Publish<T>(object message)
         {
-            return Publish<T>(message, Timeout.InfiniteTimeSpan, CancellationToken.None);            
+            return Publish<T>(message, Timeout.InfiniteTimeSpan, CancellationToken.None);
         }
 
         public Task<T> Publish<T>(object message, TimeSpan timeout)
@@ -195,7 +195,7 @@ namespace PushoverQ
         private async Task CreateTopic(string topic)
         {
             Logger.TraceFormat("Creating topic {0}", topic);
-            
+
             try
             {
                 var td = new TopicDescription(topic)
@@ -234,7 +234,7 @@ namespace PushoverQ
 
         private async Task<Exception> HandleMessage(object message, Envelope envelope)
         {
-            if(message == null)
+            if (message == null)
                 return null;
             if (envelope == null) throw new ArgumentNullException("envelope");
 
@@ -243,7 +243,7 @@ namespace PushoverQ
             var types = new HashSet<Type>();
             var type = message.GetType();
 
-            while(type != null)
+            while (type != null)
             {
                 types.Add(type);
                 type = type.BaseType;
@@ -271,10 +271,10 @@ namespace PushoverQ
                                                            }
                                                        }));
             }
-            catch(AggregateException ae)
+            catch (AggregateException ae)
             {
-                 foreach(var ex in ae.InnerExceptions)
-                     Logger.WarnFormat("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
+                foreach (var ex in ae.InnerExceptions)
+                    Logger.WarnFormat("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
                 return ae;
             }
             catch (Exception ex)
@@ -282,7 +282,7 @@ namespace PushoverQ
                 Logger.WarnFormat("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
                 return ex;
             }
-            
+
             Logger.DebugFormat("END: Handled message with id `{0:n}'", envelope.MessageId);
 
             return null;
@@ -308,11 +308,14 @@ namespace PushoverQ
             CancellationToken token = new CancellationToken();
             Task.Run(async () =>
                                {
-                                   while(true)
+                                   while (true)
                                    {
                                        token.ThrowIfCancellationRequested();
 
                                        var brokeredMessage = await RetryPolicy.ExecuteAsync(() => Task<BrokeredMessage>.Factory.FromAsync(receiver.BeginReceive, receiver.EndReceive, TimeSpan.FromMinutes(5), null));
+                                       if (brokeredMessage == null)
+                                           continue; // no message here
+
                                        if (brokeredMessage.ContentType == null)
                                        {
                                            await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
@@ -328,9 +331,9 @@ namespace PushoverQ
 
                                        object message;
                                        using (var stream = brokeredMessage.GetBody<Stream>())
-                                          message = _settings.Serializer.Deserialize(type, stream);
+                                           message = _settings.Serializer.Deserialize(type, stream);
 
-                                       var envelope = new Envelope { MessageId = Guid.Parse(brokeredMessage.MessageId)};
+                                       var envelope = new Envelope { MessageId = Guid.Parse(brokeredMessage.MessageId) };
 
                                        var ex = await HandleMessage(message, envelope);
                                        if (ex == null)
@@ -391,8 +394,8 @@ namespace PushoverQ
 
         public void Attach<T>(Func<T, Envelope, Task> handler) where T : class
         {
-            Func<object, Envelope, Task> nongeneric = (m, e) => handler((T) m, e);
-            Attach(typeof (T), nongeneric);
+            Func<object, Envelope, Task> nongeneric = (m, e) => handler((T)m, e);
+            Attach(typeof(T), nongeneric);
         }
 
         public Task<ISubscription> Subscribe<T>(Func<T, Task> handler) where T : class
@@ -457,7 +460,7 @@ namespace PushoverQ
         {
             return Subscribe<T>(subscription, (m, e) => consumerFactory().Consume(m, e));
         }
-    
+
         #endregion
 
         public void Dispose(bool disposing)
@@ -473,7 +476,7 @@ namespace PushoverQ
 
         ~Bus()
         {
-            Dispose(false);            
+            Dispose(false);
         }
     }
 }
