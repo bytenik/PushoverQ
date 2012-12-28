@@ -343,14 +343,42 @@ namespace PushoverQ
             return null;
         }
 
+        public Task<ISubscription> Subscribe(Type type, Func<object, Envelope, Task> handler)
+        {
+            return Subscribe(_settings.TypeToSubscriptionName(type), type, handler);
+        }
+
+        public async Task<ISubscription> Subscribe(string subscription, Type type, Func<object, Envelope, Task> handler)
+        {
+            Attach(handler);
+            await Subscribe(subscription, type);
+
+            return null;
+        }
+
         public Task<ISubscription> Subscribe<T>() where T : class
         {
             return Subscribe<T>(_settings.TypeToSubscriptionName(typeof(T)));
         }
 
-        public Task<ISubscription> Subscribe<T>(string subscription)
+        public Task<ISubscription> Subscribe(Type type)
         {
-            return Subscribe(_settings.TypeToTopicName(typeof (T)), subscription);
+            return Subscribe(type, _settings.TypeToSubscriptionName(type));
+        }
+
+        public Task<ISubscription> Subscribe(string subscription, Type type)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<ISubscription> Subscribe<T>(string subscription) where T : class
+        {
+            return Subscribe(typeof(T), subscription);
+        }
+
+        public Task<ISubscription> Subscribe(Type type, string subscription)
+        {
+            return Subscribe(_settings.TypeToTopicName(type), subscription);
         }
 
         public void Attach<T>(Func<T, Task> handler) where T : class
@@ -358,12 +386,18 @@ namespace PushoverQ
             Attach<T>((m, e) => handler(m));
         }
 
+        public void Attach(Type type, Func<object, Envelope, Task> handler)
+        {
+            Logger.InfoFormat("Attaching handler for type `{0}'", type);
+
+            Func<object, Envelope, Task> nongeneric = handler;
+            _handlers.Add(type, nongeneric);
+        }
+
         public void Attach<T>(Func<T, Envelope, Task> handler) where T : class
         {
-            Logger.InfoFormat("Attaching handler for type `{0}'", typeof(T).FullName);
-
             Func<object, Envelope, Task> nongeneric = (m, e) => handler((T) m, e);
-            _handlers.Add(typeof (T), nongeneric);
+            Attach(typeof (T), nongeneric);
         }
 
         public Task<ISubscription> Subscribe<T>(Func<T, Task> handler) where T : class

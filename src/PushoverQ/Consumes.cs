@@ -8,12 +8,12 @@ namespace PushoverQ
 {
     public class Consumes<T> where T : class
     {
-        public interface Message
+        public interface Message : IConsumer
         {
             Task Consume(T message);
         }
 
-        public interface Envelope
+        public interface Envelope : IConsumer
         {
             Task Consume(T message, PushoverQ.Envelope envelope);
         }
