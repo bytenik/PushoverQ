@@ -17,7 +17,7 @@ namespace PushoverQ.Configuration
 
         public void WithConnectionString(string connectionString)
         {
-            Settings.ConnectionString = connectionString;
+            Settings.ConnectionString = connectionString.Replace("localhost", Environment.MachineName);
         }
 
         public void WithDefaultSubscriptionName(string subscription)

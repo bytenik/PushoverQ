@@ -350,7 +350,7 @@ namespace PushoverQ
 
         public async Task<ISubscription> Subscribe(string subscription, Type type, Func<object, Envelope, Task> handler)
         {
-            Attach(handler);
+            Attach(type, handler);
             await Subscribe(subscription, type);
 
             return null;
@@ -363,22 +363,17 @@ namespace PushoverQ
 
         public Task<ISubscription> Subscribe(Type type)
         {
-            return Subscribe(type, _settings.TypeToSubscriptionName(type));
+            return Subscribe(_settings.TypeToSubscriptionName(type), type);
         }
 
         public Task<ISubscription> Subscribe(string subscription, Type type)
         {
-            throw new NotImplementedException();
+            return Subscribe(_settings.TypeToTopicName(type), subscription);
         }
 
         public Task<ISubscription> Subscribe<T>(string subscription) where T : class
         {
-            return Subscribe(typeof(T), subscription);
-        }
-
-        public Task<ISubscription> Subscribe(Type type, string subscription)
-        {
-            return Subscribe(_settings.TypeToTopicName(type), subscription);
+            return Subscribe(subscription, typeof(T));
         }
 
         public void Attach<T>(Func<T, Task> handler) where T : class
@@ -417,7 +412,7 @@ namespace PushoverQ
 
         public async Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler) where T : class
         {
-            Attach(handler);
+            Attach<T>(handler);
             await Subscribe<T>(subscription);
 
             return null;
