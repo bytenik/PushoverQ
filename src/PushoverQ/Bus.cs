@@ -130,7 +130,7 @@ namespace PushoverQ
                                                                  if (sendSettings.Expiration != null)
                                                                      brokeredMessage.TimeToLive = sendSettings.Expiration.Value;
 
-                                                                 brokeredMessage.ContentType = message.GetType().FullName;
+                                                                 brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
                                                                  await Task.Factory.FromAsync(sender.BeginSend, sender.EndSend, brokeredMessage, null)
                                                                      .WithTimeoutAndCancellation(timeout, token);
                                                              }
