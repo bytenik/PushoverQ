@@ -105,11 +105,11 @@ namespace PushoverQ
 
             var messageId = Guid.NewGuid();
 
-            Logger.DebugFormat("BEGIN: Waiting to send message of type `{0}` and id `{1}' to the bus", message.GetType().FullName, messageId.ToString("n"));
+            Logger.DebugFormat("BEGIN: Waiting to send message of type `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
 
             await _publishSemaphore.WaitAsync(timeout, token);
 
-            Logger.TraceFormat("GO: Sending message with id `{0}` to the bus", messageId.ToString("n"));
+            Logger.TraceFormat("GO: Sending message with id `{0:n}` to the bus", messageId);
 
             try
             {
@@ -138,7 +138,7 @@ namespace PushoverQ
 
                 await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(sender.BeginClose, sender.EndClose, null));
 
-                Logger.DebugFormat("END: Sent message with id `{0}' to the bus", messageId.ToString("n"));
+                Logger.DebugFormat("END: Sent message with id `{0:n}' to the bus", messageId);
             }
             finally
             {
