@@ -13,8 +13,8 @@ namespace PushoverQ.Configuration
         public string DefaultSubscriptionName { get; set; }
         public ISerializer Serializer { get; set; }
         public string ConnectionString { get; set; }
-        public uint MaxMessagesInFlight { get; set; }
-        public uint NumberOfReceiversPerSubscription { get; set; }
+        public ushort MaxMessagesInFlight { get; set; }
+        public ushort NumberOfReceiversPerSubscription { get; set; }
 
         public BusSettings()
         {

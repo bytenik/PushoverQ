@@ -44,7 +44,7 @@ namespace PushoverQ
 
             _messagingFactory = MessagingFactory.CreateFromConnectionString(settings.ConnectionString);
             _namespaceManager = NamespaceManager.CreateFromConnectionString(settings.ConnectionString);
-            _publishSemaphore = new SemaphoreSlim((int)settings.MaxMessagesInFlight);
+            _publishSemaphore = new SemaphoreSlim(settings.MaxMessagesInFlight);
         }
 
         private async Task Start()
