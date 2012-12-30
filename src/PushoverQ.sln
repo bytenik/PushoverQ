@@ -12,6 +12,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{66C982
 		.nuget\NuGet.targets = .nuget\NuGet.targets
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushoverQ.Json", "PushoverQ.Json\PushoverQ.Json.csproj", "{C9098356-3276-4F44-AC62-E069ADD9C6C1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,6 +28,10 @@ Global
 		{27934EC9-8E77-419B-8640-8282B0692FDA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{27934EC9-8E77-419B-8640-8282B0692FDA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{27934EC9-8E77-419B-8640-8282B0692FDA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C9098356-3276-4F44-AC62-E069ADD9C6C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C9098356-3276-4F44-AC62-E069ADD9C6C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C9098356-3276-4F44-AC62-E069ADD9C6C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C9098356-3276-4F44-AC62-E069ADD9C6C1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
