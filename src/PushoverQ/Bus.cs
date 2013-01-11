@@ -336,10 +336,19 @@ namespace PushoverQ
                                        var envelope = new Envelope { MessageId = Guid.Parse(brokeredMessage.MessageId) };
 
                                        var ex = await HandleMessage(message, envelope);
-                                       if (ex == null)
-                                           await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginComplete, brokeredMessage.EndComplete, null));
-                                       else
-                                           await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
+
+                                       try
+                                       {
+
+                                           if (ex == null)
+                                               await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginComplete, brokeredMessage.EndComplete, null));
+                                           else
+                                               await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
+                                       }
+                                       catch (MessageLockLostException)
+                                       {
+                                           // oh well...
+                                       }
                                    }
                                }, token);
 
