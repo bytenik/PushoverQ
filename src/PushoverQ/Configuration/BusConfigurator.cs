@@ -40,6 +40,11 @@ namespace PushoverQ.Configuration
             Settings.Serializer = new T();
         }
 
+        public void WithNumberOfReceiversPerSubscription(uint count)
+        {
+            Settings.NumberOfReceiversPerSubscription = count;
+        }
+
         public void WithSerializer(ISerializer serializer)
         {
             Settings.Serializer = serializer;

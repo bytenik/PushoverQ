@@ -306,51 +306,51 @@ namespace PushoverQ
             _receivers.Add(path, receiver);
 
             CancellationToken token = new CancellationToken();
-            Task.Run(async () =>
-                               {
-                                   while (true)
-                                   {
-                                       token.ThrowIfCancellationRequested();
+            for (int i = 0; i < _settings.NumberOfReceiversPerSubscription; i++)
+            {
+                Task.Run(async () =>
+                    {
+                        while (true)
+                        {
+                            token.ThrowIfCancellationRequested();
 
-                                       var brokeredMessage = await RetryPolicy.ExecuteAsync(() => Task<BrokeredMessage>.Factory.FromAsync(receiver.BeginReceive, receiver.EndReceive, TimeSpan.FromMinutes(5), null));
-                                       if (brokeredMessage == null)
-                                           continue; // no message here
+                            var brokeredMessage = await RetryPolicy.ExecuteAsync(() => Task<BrokeredMessage>.Factory.FromAsync(receiver.BeginReceive, receiver.EndReceive, TimeSpan.FromMinutes(5), null));
+                            if (brokeredMessage == null) continue; // no message here
 
-                                       if (brokeredMessage.ContentType == null)
-                                       {
-                                           await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
-                                           continue;
-                                       }
+                            if (brokeredMessage.ContentType == null)
+                            {
+                                await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
+                                continue;
+                            }
 
-                                       var type = Type.GetType(brokeredMessage.ContentType, false);
-                                       if (type == null)
-                                       {
-                                           await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
-                                           continue;
-                                       }
+                            var type = Type.GetType(brokeredMessage.ContentType, false);
+                            if (type == null)
+                            {
+                                await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
+                                continue;
+                            }
 
-                                       object message;
-                                       using (var stream = brokeredMessage.GetBody<Stream>())
-                                           message = _settings.Serializer.Deserialize(type, stream);
+                            object message;
+                            using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
 
-                                       var envelope = new Envelope { MessageId = Guid.Parse(brokeredMessage.MessageId) };
+                            var envelope = new Envelope { MessageId = Guid.Parse(brokeredMessage.MessageId) };
 
-                                       var ex = await HandleMessage(message, envelope);
+                            var ex = await HandleMessage(message, envelope);
 
-                                       try
-                                       {
+                            try
+                            {
 
-                                           if (ex == null)
-                                               await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginComplete, brokeredMessage.EndComplete, null));
-                                           else
-                                               await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
-                                       }
-                                       catch (MessageLockLostException)
-                                       {
-                                           // oh well...
-                                       }
-                                   }
-                               }, token);
+                                if (ex == null) await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginComplete, brokeredMessage.EndComplete, null));
+                                else await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
+                            }
+                            catch (MessageLockLostException)
+                            {
+                                // oh well...
+                            }
+                        }
+                    },
+                    token);
+            }
 
             return null;
         }

@@ -14,7 +14,7 @@ namespace PushoverQ.Configuration
         public ISerializer Serializer { get; set; }
         public string ConnectionString { get; set; }
         public ushort MaxMessagesInFlight { get; set; }
-        public ushort NumberOfReceiversPerSubscription { get; set; }
+        public uint NumberOfReceiversPerSubscription { get; set; }
 
         public BusSettings()
         {
@@ -22,7 +22,7 @@ namespace PushoverQ.Configuration
             TypeToSubscriptionName = type => DefaultSubscriptionName;
             DefaultSubscriptionName = "default";
             MaxMessagesInFlight = 10;
-            NumberOfReceiversPerSubscription = 3;
+            NumberOfReceiversPerSubscription = 5;
             Serializer = new BinaryFormatterSerializer();
         }
     }
