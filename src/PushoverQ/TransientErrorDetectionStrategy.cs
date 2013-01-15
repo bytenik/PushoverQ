@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net.Sockets;
 using System.ServiceModel;
 using Microsoft.Practices.TransientFaultHandling;
@@ -25,12 +26,16 @@ namespace PushoverQ
                 return true;
             if (ex is MessagingCommunicationException)
                 return ((MessagingCommunicationException) ex).IsTransient;
+            if (ex is MessagingException)
+                return ex.Message.Contains("please retry the operation");
             if (ex is CommunicationException)
                 return true;
             if (ex is SocketException)
                 return ((SocketException)ex).ErrorCode == (int) SocketError.TimedOut;
             if (ex is UnauthorizedAccessException)
                 return ex.Message.Contains("The remote name could not be resolved") || ex.Message.Contains("The underlying connection was closed");
+            if (ex is AggregateException)
+                return ((AggregateException)ex).InnerExceptions.All(IsTransient);
 
             return false;
         }
