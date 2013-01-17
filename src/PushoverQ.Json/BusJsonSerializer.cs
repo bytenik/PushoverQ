@@ -13,14 +13,14 @@ namespace PushoverQ.Json
     {
         private readonly JsonSerializerSettings _settings;
 
-        public BusJsonSerializer(JsonSerializerSettings settings)
-        {
-            _settings = settings;
-        }
-
         public BusJsonSerializer()
             : this(new JsonSerializerSettings())
         {
+        }
+
+        public BusJsonSerializer(JsonSerializerSettings settings)
+        {
+            _settings = settings;
             _serializer = new ThreadLocal<JsonSerializer>(() => JsonSerializer.Create(_settings));
         }
 
