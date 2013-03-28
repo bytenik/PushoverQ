@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace PushoverQ
 {
-    public class ConcurrentSet<T> : IEnumerable<T>, ISet<T>, ICollection<T>
+    class ConcurrentSet<T> : IEnumerable<T>, ISet<T>, ICollection<T>
     {
         private readonly ConcurrentDictionary<T, byte> _dictionary = new ConcurrentDictionary<T, byte>();
 
