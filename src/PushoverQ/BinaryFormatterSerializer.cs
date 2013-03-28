@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace PushoverQ
 {
-    public class BinaryFormatterSerializer : ISerializer
+    class BinaryFormatterSerializer : ISerializer
     {
         private static readonly ThreadLocal<BinaryFormatter> Formatter = new ThreadLocal<BinaryFormatter>(() => new BinaryFormatter()); 
 

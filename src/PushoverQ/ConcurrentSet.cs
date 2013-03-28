@@ -63,7 +63,7 @@ namespace PushoverQ
         public bool IsReadOnly { get { return false; } }
 
         /// <summary>
-        /// Gets a value that indicates if the set is empty.
+        /// Gets a value indicating whether the set is empty.
         /// </summary>
         public bool IsEmpty
         {

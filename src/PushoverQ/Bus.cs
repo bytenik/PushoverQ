@@ -49,7 +49,6 @@ namespace PushoverQ
 
         private async Task Start()
         {
-
         }
 
         #region Publish
@@ -339,7 +338,6 @@ namespace PushoverQ
 
                             try
                             {
-
                                 if (ex == null) await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginComplete, brokeredMessage.EndComplete, null));
                                 else await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
                             }
