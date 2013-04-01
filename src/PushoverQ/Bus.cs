@@ -135,7 +135,7 @@ namespace PushoverQ
                 {
                     EnableBatchedOperations = true,
                     IsAnonymousAccessible = false,
-                    MaxSizeInMegabytes = 1024 * 5,
+                    MaxSizeInMegabytes = 1024 * 5, // max size allowed by bus is 5 GB
                     RequiresDuplicateDetection = true,
                 };
                 await RetryPolicy.ExecuteAsync(() => Task<TopicDescription>.Factory.FromAsync(_namespaceManager.BeginCreateTopic, _namespaceManager.EndCreateTopic, td, null));
