@@ -58,6 +58,7 @@
   <ItemGroup>
     <Compile Include="BinaryFormatterSerializer.cs" />
     <Compile Include="Bus.cs" />
+    <Compile Include="BusExtensions.cs" />
     <Compile Include="ConcurrentMultiMap.cs" />
     <Compile Include="ConcurrentSet.cs" />
     <Compile Include="Configuration\BusConfigurator.cs" />
