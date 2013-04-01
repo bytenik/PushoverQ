@@ -100,6 +100,16 @@ namespace PushoverQ
             return bus.Subscribe<T>(subscription, m => consumerFactory().Consume(m));            
         }
 
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, Func<T, Task> handler) where T : class
+        {
+            return bus.Subscribe<T>((m, e) => handler(m));
+        }
+
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, string subscription, Func<T, Task> handler) where T : class
+        {
+            return bus.Subscribe<T>(subscription, (m, e) => handler(m));            
+        }
+
         public static Task<ISubscription> Subscribe<T>(this IBus bus, Func<Consumes<T>.Envelope> consumerFactory) where T : class
         {
             return bus.Subscribe<T>((m, e) => consumerFactory().Consume(m, e));
@@ -109,5 +119,11 @@ namespace PushoverQ
         {
             return bus.Subscribe<T>(subscription, (m, e) => consumerFactory().Consume(m, e));
         }
+
+        public static void Attach<T>(this IBus bus, Func<T, Task> handler) where T : class
+        {
+            bus.Attach<T>((m, e) => handler(m));
+        }
+
     }
 }

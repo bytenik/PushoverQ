@@ -17,7 +17,6 @@ namespace PushoverQ
         Task<T> Publish<T>(object message, TimeSpan timeout, CancellationToken token);
         Task<T> Publish<T>(object message, Action<ISendConfigurator> configure, TimeSpan timeout, CancellationToken token);
 
-        void Attach<T>(Func<T, Task> handler) where T : class;
         void Attach<T>(Func<T, Envelope, Task> handler) where T : class;
         void Attach(Type type, Func<object, Envelope, Task> handler);
 
@@ -30,8 +29,6 @@ namespace PushoverQ
         Task<ISubscription> Subscribe(Type type);
         Task<ISubscription> Subscribe(string subscription, Type type);
 
-        Task<ISubscription> Subscribe<T>(Func<T, Task> handler) where T : class;
-        Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler) where T : class;
         Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler) where T : class;
         Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler) where T : class;
     }

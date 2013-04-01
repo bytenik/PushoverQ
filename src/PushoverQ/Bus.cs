@@ -320,11 +320,6 @@ namespace PushoverQ
             return Subscribe(subscription, typeof(T));
         }
 
-        public void Attach<T>(Func<T, Task> handler) where T : class
-        {
-            Attach<T>((m, e) => handler(m));
-        }
-
         public void Attach(Type type, Func<object, Envelope, Task> handler)
         {
             Logger.InfoFormat("Attaching handler for type `{0}'", type);
@@ -337,16 +332,6 @@ namespace PushoverQ
         {
             Func<object, Envelope, Task> nongeneric = (m, e) => handler((T)m, e);
             Attach(typeof(T), nongeneric);
-        }
-
-        public Task<ISubscription> Subscribe<T>(Func<T, Task> handler) where T : class
-        {
-            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), handler);
-        }
-
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Task> handler) where T : class
-        {
-            return Subscribe<T>(subscription, (m, e) => handler(m));
         }
 
         public Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler) where T : class
