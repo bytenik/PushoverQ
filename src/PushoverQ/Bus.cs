@@ -362,46 +362,6 @@ namespace PushoverQ
             return null;
         }
 
-        public Task<ISubscription> Subscribe<T>(Consumes<T>.Message consumer) where T : class
-        {
-            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumer);
-        }
-
-        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Message consumer) where T : class
-        {
-            return Subscribe<T>(subscription, consumer.Consume);
-        }
-
-        public Task<ISubscription> Subscribe<T>(Consumes<T>.Envelope consumer) where T : class
-        {
-            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumer);
-        }
-
-        public Task<ISubscription> Subscribe<T>(string subscription, Consumes<T>.Envelope consumer) where T : class
-        {
-            return Subscribe<T>(subscription, consumer.Consume);
-        }
-
-        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Message> consumerFactory) where T : class
-        {
-            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumerFactory);
-        }
-
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Message> consumerFactory) where T : class
-        {
-            return Subscribe<T>(subscription, m => consumerFactory().Consume(m));
-        }
-
-        public Task<ISubscription> Subscribe<T>(Func<Consumes<T>.Envelope> consumerFactory) where T : class
-        {
-            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), consumerFactory);
-        }
-
-        public Task<ISubscription> Subscribe<T>(string subscription, Func<Consumes<T>.Envelope> consumerFactory) where T : class
-        {
-            return Subscribe<T>(subscription, (m, e) => consumerFactory().Consume(m, e));
-        }
-
         #endregion
 
         public void Dispose(bool disposing)

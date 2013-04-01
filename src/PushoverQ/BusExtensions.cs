@@ -69,5 +69,45 @@ namespace PushoverQ
         {
             return bus.Publish<T>(message, configure, Timeout.InfiniteTimeSpan, token);
         }
+
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, Consumes<T>.Message consumer) where T : class
+        {
+            return bus.Subscribe<T>(() => consumer);
+        }
+
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, string subscription, Consumes<T>.Message consumer) where T : class
+        {
+            return bus.Subscribe<T>(subscription, () => consumer);            
+        }
+
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, Consumes<T>.Envelope consumer) where T : class
+        {
+            return bus.Subscribe<T>(() => consumer);
+        }
+
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, string subscription, Consumes<T>.Envelope consumer) where T : class
+        {
+            return bus.Subscribe<T>(subscription, () => consumer);            
+        }
+
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, Func<Consumes<T>.Message> consumerFactory) where T : class
+        {
+            return bus.Subscribe<T>(m => consumerFactory().Consume(m));
+        }
+
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, string subscription, Func<Consumes<T>.Message> consumerFactory) where T : class
+        {
+            return bus.Subscribe<T>(subscription, m => consumerFactory().Consume(m));            
+        }
+
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, Func<Consumes<T>.Envelope> consumerFactory) where T : class
+        {
+            return bus.Subscribe<T>((m, e) => consumerFactory().Consume(m, e));
+        }
+
+        public static Task<ISubscription> Subscribe<T>(this IBus bus, string subscription, Func<Consumes<T>.Envelope> consumerFactory) where T : class
+        {
+            return bus.Subscribe<T>(subscription, (m, e) => consumerFactory().Consume(m, e));
+        }
     }
 }
