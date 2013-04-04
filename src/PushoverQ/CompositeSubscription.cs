@@ -13,7 +13,7 @@ namespace PushoverQ
     class CompositeSubscription : ISubscription
     {
         private readonly ISubscription[] _subscriptions;
-        private bool disposed;
+        private bool _disposed;
 
         private static readonly ILog Log = LogManager.GetCurrentClassLogger();
 
@@ -39,19 +39,19 @@ namespace PushoverQ
         public void Dispose()
         {
             Unsubscribe().Wait();
-            disposed = true;
+            _disposed = true;
         }
 
         public Task Unsubscribe()
         {
-            if (disposed) return Task.FromResult<object>(null);
-            disposed = true;
+            if (_disposed) return Task.FromResult<object>(null);
+            _disposed = true;
             return Task.WhenAll(_subscriptions.Select(x => x.Unsubscribe()));
         }
 
         ~CompositeSubscription()
         {
-            if (!disposed) Log.Info("Finalizer reached a subscription that was not unsubscribed or disposed.");
+            if (!_disposed) Log.Info("Finalizer reached a subscription that was not unsubscribed or disposed.");
         }
     }
 }
