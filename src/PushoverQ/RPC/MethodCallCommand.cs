@@ -2,10 +2,10 @@
 
 namespace PushoverQ.RPC
 {
-    class CallCommand
+    class MethodCallCommand
     {
         public string MethodName { get; set; }
-        public Type[] TypeArguments { get; set; }
+        public string[] ArgumentTypes { get; set; }
         public object[] Arguments { get; set; }
     }
 }

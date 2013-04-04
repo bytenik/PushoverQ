@@ -37,7 +37,7 @@ namespace PushoverQ
             GC.SuppressFinalize(this);
         }
 
-        public async Task DisposeAsync()
+        public async Task Unsubscribe()
         {
             await _retryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(_namespaceManager.BeginDeleteSubscription, _namespaceManager.EndDeleteSubscription, _topic, _subscription, null));
             GC.SuppressFinalize(this);

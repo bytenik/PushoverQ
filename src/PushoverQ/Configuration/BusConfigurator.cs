@@ -22,7 +22,7 @@ namespace PushoverQ.Configuration
 
         public void WithDefaultSubscriptionName(string subscription)
         {
-            Settings.DefaultSubscriptionName = subscription;
+            Settings.EndpointName = subscription;
         }
 
         public void WithSubscriptionLookupFunction(Func<Type, string> lookup)

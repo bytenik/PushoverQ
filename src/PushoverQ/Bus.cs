@@ -3,6 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.Remoting.Messaging;
+using System.Runtime.Remoting.Proxies;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
@@ -165,7 +168,7 @@ namespace PushoverQ
             }
         }
 
-        private async Task<Exception> HandleMessage(object message, Envelope envelope)
+        private async Task<Exception> HandleMessage(object message, Envelope envelope, ISet<Func<object, Envelope, Task>> handlers)
         {
             if (message == null)
                 return null;
@@ -173,36 +176,20 @@ namespace PushoverQ
 
             Logger.DebugFormat("BEGIN: Handling message with id `{0:n}' and type `{1}'", envelope.MessageId, message.GetType().FullName);
 
-            var types = new HashSet<Type>();
-            var type = message.GetType();
-
-            while (type != null)
-            {
-                types.Add(type);
-                type = type.BaseType;
-            }
-
-            types.UnionWith(types.SelectMany(t => t.GetInterfaces()).ToArray());
-
-            var handlers = types.SelectMany(t =>
-                                                {
-                                                    ISet<Func<object, Envelope, Task>> set;
-                                                    return _handlers.TryGetValue(t, out set) ? set : Enumerable.Empty<Func<object, Envelope, Task>>();
-                                                });
-
             try
             {
                 await Task.WhenAll(handlers.Select(h =>
-                                                       {
-                                                           try
-                                                           {
-                                                               return h(message, envelope);
-                                                           }
-                                                           catch (Exception ex)
-                                                           {
-                                                               return ex.AsTask();
-                                                           }
-                                                       }));
+                    {
+                        try
+                        {
+                            return h(message, envelope);
+                        }
+                        catch (Exception ex)
+                        {
+                            return ex.AsTask();
+                        }
+                    })
+                    .Where(t => t != null));
             }
             catch (AggregateException ae)
             {
@@ -221,133 +208,161 @@ namespace PushoverQ
             return null;
         }
 
-        private readonly ConcurrentMultiMap<string, MessageReceiver> _receivers = new ConcurrentMultiMap<string, MessageReceiver>();
-        private readonly ConcurrentMultiMap<Type, Func<object, Envelope, Task>> _handlers = new ConcurrentMultiMap<Type, Func<object, Envelope, Task>>();
+        private readonly ConcurrentMultiMap<string, MessageReceiver> _pathToReceivers = new ConcurrentMultiMap<string, MessageReceiver>();
+        private readonly ConcurrentMultiMap<string, Func<object, Envelope, Task>> _pathToHandlers = new ConcurrentMultiMap<string, Func<object, Envelope, Task>>();
 
-        public async Task<ISubscription> Subscribe(string topic, string subscription)
+        private async Task<MessageReceiver> SpinUpReceiver(string path)
         {
-            Logger.InfoFormat("Subscribing to topic: `{0}', subscription: `{1}'", topic, subscription);
-
-            await CreateTopic(topic);
-            await CreateSubscription(topic, subscription);
-
-            var path = topic + "/subscriptions/" + subscription;
-            if (_receivers.CountValues(path) >= _settings.NumberOfReceiversPerSubscription)
-                return null;
-
             var receiver = await RetryPolicy.ExecuteAsync(() => Task<MessageReceiver>.Factory.FromAsync(_messagingFactory.BeginCreateMessageReceiver, _messagingFactory.EndCreateMessageReceiver, path, null));
-            _receivers.Add(path, receiver);
+            _pathToReceivers.Add(path, receiver);
 
-            CancellationToken token = new CancellationToken();
-            for (int i = 0; i < _settings.NumberOfReceiversPerSubscription; i++)
-            {
-                Task.Run(async () =>
+            Task.Run(async () =>
+                {
+                    while (true)
                     {
-                        while (true)
+                        var brokeredMessage = await RetryPolicy.ExecuteAsync(() => Task<BrokeredMessage>.Factory.FromAsync(receiver.BeginReceive, receiver.EndReceive, TimeSpan.FromMinutes(5), null));
+                        if (brokeredMessage == null) continue; // no message here
+
+                        if (brokeredMessage.ContentType == null)
                         {
-                            token.ThrowIfCancellationRequested();
-
-                            var brokeredMessage = await RetryPolicy.ExecuteAsync(() => Task<BrokeredMessage>.Factory.FromAsync(receiver.BeginReceive, receiver.EndReceive, TimeSpan.FromMinutes(5), null));
-                            if (brokeredMessage == null) continue; // no message here
-
-                            if (brokeredMessage.ContentType == null)
-                            {
-                                await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
-                                continue;
-                            }
-
-                            var type = Type.GetType(brokeredMessage.ContentType, false);
-                            if (type == null)
-                            {
-                                await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
-                                continue;
-                            }
-
-                            object message;
-                            using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
-
-                            var envelope = new Envelope { MessageId = Guid.Parse(brokeredMessage.MessageId) };
-
-                            var ex = await HandleMessage(message, envelope);
-
-                            try
-                            {
-                                if (ex == null) await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginComplete, brokeredMessage.EndComplete, null));
-                                else await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
-                            }
-                            catch (MessageLockLostException)
-                            {
-                                // oh well...
-                            }
+                            await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
+                            continue;
                         }
-                    },
-                    token);
+
+                        var type = Type.GetType(brokeredMessage.ContentType, false);
+                        if (type == null)
+                        {
+                            await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
+                            continue;
+                        }
+
+                        object message;
+                        using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
+
+                        var envelope = new Envelope {MessageId = Guid.Parse(brokeredMessage.MessageId)};
+
+                        var ex = await HandleMessage(message, envelope, _pathToHandlers[path]);
+
+                        try
+                        {
+                            if (ex == null) await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginComplete, brokeredMessage.EndComplete, null));
+                            else await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
+                        }
+                        catch (MessageLockLostException)
+                        {
+                            // oh well...
+                        }
+                    }
+                });
+
+            return receiver;
+        }
+
+        private class Subscription : ISubscription
+        {
+            private readonly IBus _bus;
+
+            public Subscription(IBus bus)
+            {
+                _bus = bus;
             }
 
+            public void Dispose()
+            {
+                try
+                {
+                    Unsubscribe().Wait();
+                }
+                catch (AggregateException e)
+                {
+                    if (e.InnerExceptions.Count == 1)
+                        throw e.InnerException;
+                    
+                    throw;
+                }
+            }
+
+            public Task Unsubscribe()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        private string GetPath(string topic, string subscription)
+        {
+            if (topic == null) throw new ArgumentNullException("topic");
+            if (subscription == null) throw new ArgumentNullException("subscription");
+
+            return topic + "/subscriptions/" + subscription;
+        }
+
+        public async Task<ISubscription> Subscribe(string topic, IEnumerable<string> subscriptions, Func<object, Envelope, Task> handler)
+        {
+            Logger.InfoFormat("Subscribing to topic: `{0}'", topic);
+
+            await CreateTopic(topic);
+
+            var subscribeTasks = subscriptions.Select<string, Task>(async subscription =>
+            {
+                await CreateSubscription(topic, subscription);
+                var path = GetPath(topic, subscription);
+
+                for (var i = _pathToReceivers.CountValues(path); i < _settings.NumberOfReceiversPerSubscription; i++)
+                    await SpinUpReceiver(path);
+            });
+
+            await Task.WhenAll(subscribeTasks);
             return null;
+        }
+
+        private string GetTopicName(Type type)
+        {
+            return type.FullName;
         }
 
         public Task<ISubscription> Subscribe(Type type, Func<object, Envelope, Task> handler)
         {
-            return Subscribe(_settings.TypeToSubscriptionName(type), type, handler);
+            var types = new HashSet<Type>();
+
+            while (type != null)
+            {
+                types.Add(type);
+                type = type.BaseType;
+            }
+
+            types.UnionWith(types.SelectMany(t => t.GetInterfaces()).ToArray());
+
+            return Subscribe(types.Select(x => GetTopicName(type)), type, handler);
         }
 
-        public async Task<ISubscription> Subscribe(string subscription, Type type, Func<object, Envelope, Task> handler)
+        public Task<ISubscription> Subscribe(string subscription, Type type, Func<object, Envelope, Task> handler)
         {
-            Attach(type, handler);
-            await Subscribe(subscription, type);
-
-            return null;
-        }
-
-        public Task<ISubscription> Subscribe<T>() where T : class
-        {
-            return Subscribe<T>(_settings.TypeToSubscriptionName(typeof(T)));
-        }
-
-        public Task<ISubscription> Subscribe(Type type)
-        {
-            return Subscribe(_settings.TypeToSubscriptionName(type), type);
-        }
-
-        public Task<ISubscription> Subscribe(string subscription, Type type)
-        {
-            return Subscribe(_settings.TypeToTopicName(type), subscription);
-        }
-
-        public Task<ISubscription> Subscribe<T>(string subscription) where T : class
-        {
-            return Subscribe(subscription, typeof(T));
-        }
-
-        public void Attach(Type type, Func<object, Envelope, Task> handler)
-        {
-            Logger.InfoFormat("Attaching handler for type `{0}'", type);
-
-            Func<object, Envelope, Task> nongeneric = handler;
-            _handlers.Add(type, nongeneric);
-        }
-
-        public void Attach<T>(Func<T, Envelope, Task> handler) where T : class
-        {
-            Func<object, Envelope, Task> nongeneric = (m, e) => handler((T)m, e);
-            Attach(typeof(T), nongeneric);
+            return Subscribe(subscription, _settings.TypeToTopicName(type), handler);
         }
 
         public Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler) where T : class
         {
-            return Subscribe(_settings.TypeToSubscriptionName(typeof(T)), handler);
+            return Subscribe(typeof(T), (m, e) => m is T ? handler((T)m, e) : null);
         }
 
-        public async Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler) where T : class
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler) where T : class
         {
-            Attach<T>(handler);
-            await Subscribe<T>(subscription);
-
-            return null;
+            return Subscribe(subscription, typeof(T), (m, e) => m is T ? handler((T)m, e) : null);
         }
 
         #endregion
+
+        public T GetProxy<T>()
+        {
+            return new RPC.Proxy<T>(this).GetTransparentProxy();
+        }
+
+        public Task<ISubscription> Subscribe<T>(Func<T> resolver)
+        {
+            throw new NotImplementedException();
+        }
+
+        #region Disposal
 
         public void Dispose(bool disposing)
         {
@@ -364,5 +379,7 @@ namespace PushoverQ
         {
             Dispose(false);
         }
+
+        #endregion
     }
 }
