@@ -26,6 +26,8 @@ namespace PushoverQ
 
         public static Task ToTask(this CancellationToken token)
         {
+            if (!token.CanBeCanceled) return NeverComplete;
+
             var tcs = new TaskCompletionSource<object>();
             token.Register(tcs.SetCanceled);
             return tcs.Task;
@@ -89,6 +91,7 @@ namespace PushoverQ
         /// <returns></returns>
         public static async Task<T> WithTimeoutAndCancellation<T>(this Task<T> task, TimeSpan timeout, CancellationToken token)
         {
+#pragma warning disable 4014
             task.IgnoreExceptions();
 
             var timeoutTask = TimeoutAsync(timeout, CancellationToken.None);
@@ -96,6 +99,7 @@ namespace PushoverQ
 
             timeoutTask.IgnoreExceptions();
             cancelTask.IgnoreExceptions();
+#pragma warning restore 4014
 
             await Task.WhenAny(task, timeoutTask, cancelTask);
             return task.Result;
@@ -110,6 +114,7 @@ namespace PushoverQ
         /// <returns></returns>
         public static async Task WithTimeoutAndCancellation(this Task task, TimeSpan timeout, CancellationToken token)
         {
+#pragma warning disable 4014
             task.IgnoreExceptions();
 
             var timeoutTask = TimeoutAsync(timeout, CancellationToken.None);
@@ -117,6 +122,7 @@ namespace PushoverQ
 
             timeoutTask.IgnoreExceptions();
             cancelTask.IgnoreExceptions();
+#pragma warning restore 4014
 
             await Task.WhenAny(task, timeoutTask, cancelTask);
         }

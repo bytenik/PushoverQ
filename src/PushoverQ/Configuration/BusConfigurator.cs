@@ -25,16 +25,6 @@ namespace PushoverQ.Configuration
             Settings.EndpointName = subscription;
         }
 
-        public void WithSubscriptionLookupFunction(Func<Type, string> lookup)
-        {
-            Settings.TypeToSubscriptionName = lookup;
-        }
-
-        public void WithTopicLookupFunction(Func<Type, string> lookup)
-        {
-            Settings.TypeToTopicName = lookup;
-        }
-
         public void WithSerializer<T>() where T : ISerializer, new()
         {
             Settings.Serializer = new T();

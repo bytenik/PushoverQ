@@ -55,12 +55,12 @@ namespace PushoverQ.RPC
             }
             else if (method.ReturnType == typeof(Task))
             {
-                var task = _bus.Publish(command, c => c.WithPublisherConfirms());
+                var task = _bus.Send(command, confirmation: true);
                 return new ReturnMessage(task, new object[0], 0, message.LogicalCallContext, message);                
             }
             else if (method.ReturnType.IsGenericType && method.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
             {
-                var task = _bus.Publish<object>(command);
+                var task = _bus.Send<object>(command);
                 return new ReturnMessage(task, new object[0], 0, message.LogicalCallContext, message);
             }
             else

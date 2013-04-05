@@ -40,8 +40,8 @@ namespace PushoverQ.Configuration
 
         public BusSettings()
         {
-            EndpointName = "default";
-            ApplicationName = "default";
+            EndpointName = Environment.MachineName;
+            ApplicationName = "app";
             MaxMessagesInFlight = 10;
             NumberOfReceiversPerSubscription = 5;
             Serializer = new BinaryFormatterSerializer();
