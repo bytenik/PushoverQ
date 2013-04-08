@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>$id$</id>
+    <version>$version$-prerelease</version>
+    <title>$title$</title>
+    <authors>$author$</authors>
+    <owners>$author$</owners>
+    <licenseUrl>http://www.apache.org/licenses/LICENSE-2.0</licenseUrl>
+    <projectUrl>https://github.com/bytenik/PushoverQ</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>$description$</description>
+    <copyright>Copyright 2013 David Pfeffer</copyright>
+    <tags>PushoverQ Microsoft.ServiceBus WindowsAzure.ServiceBus Autofac</tags>
+    <dependencies>
+      <dependency id="PushoverQ" />
+    </dependencies>
+  </metadata>
+</package>

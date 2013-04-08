@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("PushoverQ.Autofac")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("An Autofac registration helper for PushoverQ.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("David Pfeffer")]
 [assembly: AssemblyProduct("PushoverQ")]
