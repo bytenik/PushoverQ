@@ -33,7 +33,9 @@ namespace PushoverQ
             if (ex is SocketException)
                 return ((SocketException)ex).ErrorCode == (int) SocketError.TimedOut;
             if (ex is UnauthorizedAccessException)
-                return ex.Message.Contains("The remote name could not be resolved") || ex.Message.Contains("The underlying connection was closed");
+                return ex.Message.Contains("The remote name could not be resolved") 
+                    || ex.Message.Contains("The underlying connection was closed")
+                    || ex.Message.Contains("Unable to connect to the remote server");
             if (ex is AggregateException)
                 return ((AggregateException)ex).InnerExceptions.All(IsTransient);
 
