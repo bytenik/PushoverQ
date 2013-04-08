@@ -44,14 +44,14 @@ namespace Pushover.Autofac
                                     Expression<Action<Consumes<object>.Message>> sample = x => x.Consume(null);
                                     var method = (sample.Body as MethodCallExpression).Method;
                                     method = interfaceType.GetMethod(method.Name, new[] { messageType });
-                                    task = method.Invoke(consumer, new object[] { m }) as Task;
+                                    task = method.Invoke(consumer, new[] { m }) as Task;
                                 }
                                 else if (interfaceType.GetGenericTypeDefinition() == typeof(Consumes<>.Envelope))
                                 {
                                     Expression<Action<Consumes<object>.Envelope>> sample = x => x.Consume(null, null);
                                     var method = (sample.Body as MethodCallExpression).Method;
-                                    method = interfaceType.GetMethod(method.Name, new[] {messageType});
-                                    task = method.Invoke(consumer, new object[] { m, e }) as Task;
+                                    method = interfaceType.GetMethod(method.Name, new[] { messageType, typeof(Envelope) });
+                                    task = method.Invoke(consumer, new[] { m, e }) as Task;
                                 }
                                 else
                                     throw new NotSupportedException("Unsupported IConsumer derivitive.");
