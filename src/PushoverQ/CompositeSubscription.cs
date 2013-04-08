@@ -10,7 +10,7 @@ namespace PushoverQ
     /// <summary>
     /// A composite subscription.
     /// </summary>
-    class CompositeSubscription : ISubscription
+    public class CompositeSubscription : ISubscription
     {
         private readonly ISubscription[] _subscriptions;
         private bool _disposed;

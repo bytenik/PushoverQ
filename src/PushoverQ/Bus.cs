@@ -340,36 +340,6 @@ namespace PushoverQ
             return receiver;
         }
 
-        private class Subscription : ISubscription
-        {
-            private readonly IBus _bus;
-
-            public Subscription(IBus bus)
-            {
-                _bus = bus;
-            }
-
-            public void Dispose()
-            {
-                try
-                {
-                    Unsubscribe().Wait();
-                }
-                catch (AggregateException e)
-                {
-                    if (e.InnerExceptions.Count == 1)
-                        throw e.InnerException;
-                    
-                    throw;
-                }
-            }
-
-            public Task Unsubscribe()
-            {
-                throw new NotImplementedException();
-            }
-        }
-
         private string GetPath(string topic, string subscription)
         {
             if (topic == null) throw new ArgumentNullException("topic");
@@ -397,7 +367,21 @@ namespace PushoverQ
             for (var i = _pathToReceivers.CountValues(path); i < _settings.NumberOfReceiversPerSubscription; i++)
                 await SpinUpReceiver(path);
 
-            return null;
+            _pathToHandlers.Add(path, handler);
+
+            return new DelegateSubscription(async () =>
+                    {
+                        _pathToHandlers.Remove(path, handler);
+
+                        // if there's still other handlers, keep the receiver alive
+                        if (_pathToHandlers.CountValues(path) != 0) return;
+
+                        // shut down all receivers
+                        var receivers = this._pathToReceivers[path].ToArray();
+                        _pathToReceivers.Remove(path);
+                        var tasks = receivers.Select(x => Task.Factory.FromAsync(x.BeginClose, x.EndClose, null));
+                        await Task.WhenAll(tasks);
+                    });
         }
 
         private string GetTopicNameForCompete(Type type)

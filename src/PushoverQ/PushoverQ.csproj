@@ -65,6 +65,7 @@
     <Compile Include="Configuration\BusConfigurator.cs" />
     <Compile Include="Configuration\BusSettings.cs" />
     <Compile Include="Consumes.cs" />
+    <Compile Include="DelegateSubscription.cs" />
     <Compile Include="Envelope.cs" />
     <Compile Include="IConsumer.cs" />
     <Compile Include="ISubscription.cs" />

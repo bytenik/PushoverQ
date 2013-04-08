@@ -2,14 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
 using System.Threading.Tasks;
 using Autofac;
 using Autofac.Core;
-using PushoverQ;
-using PushoverQ.Configuration;
 
-namespace Pushover.Autofac
+namespace PushoverQ.Autofac
 {
     public static class AutofacSubscriber
     {
@@ -22,7 +19,7 @@ namespace Pushover.Autofac
                 .ToList();
         }
 
-        public static async Task SubscribeFrom(this IBus bus, ILifetimeScope scope)
+        public static async Task<ISubscription> SubscribeFrom(this IBus bus, ILifetimeScope scope)
         {
             var consumerTypes = FindTypes<IConsumer>(scope);
             var subscribeTasks = consumerTypes
@@ -61,7 +58,7 @@ namespace Pushover.Autofac
                         });
                 });
 
-            await Task.WhenAll(subscribeTasks);
+            return new CompositeSubscription(await Task.WhenAll(subscribeTasks));
         }
     }
 }

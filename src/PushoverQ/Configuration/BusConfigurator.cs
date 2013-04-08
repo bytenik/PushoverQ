@@ -20,9 +20,14 @@ namespace PushoverQ.Configuration
             Settings.ConnectionString = connectionString.Replace("localhost", Environment.MachineName);
         }
 
-        public void WithDefaultSubscriptionName(string subscription)
+        public void WithEndpointName(string endpointName)
         {
-            Settings.EndpointName = subscription;
+            Settings.EndpointName = endpointName;
+        }
+
+        public void WithApplicationName(string applicationName)
+        {
+            Settings.ApplicationName = applicationName;
         }
 
         public void WithSerializer<T>() where T : ISerializer, new()

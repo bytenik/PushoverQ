@@ -7,8 +7,8 @@
     <ProjectGuid>{A64159EC-0BE8-4D36-B08E-9767F583CFD4}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Pushover.Autofac</RootNamespace>
-    <AssemblyName>Pushover.Autofac</AssemblyName>
+    <RootNamespace>PushoverQ.Autofac</RootNamespace>
+    <AssemblyName>PushoverQ.Autofac</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>

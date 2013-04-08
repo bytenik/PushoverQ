@@ -14,7 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{66C982
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushoverQ.Json", "PushoverQ.Json\PushoverQ.Json.csproj", "{C9098356-3276-4F44-AC62-E069ADD9C6C1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pushover.Autofac", "Pushover.Autofac\Pushover.Autofac.csproj", "{A64159EC-0BE8-4D36-B08E-9767F583CFD4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushoverQ.Autofac", "Pushover.Autofac\PushoverQ.Autofac.csproj", "{A64159EC-0BE8-4D36-B08E-9767F583CFD4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushoverQ.Protobuf", "PushoverQ.Protobuf\PushoverQ.Protobuf.csproj", "{4BEE48E6-90EC-4551-A4C9-FB74C2971D35}"
 EndProject
