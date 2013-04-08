@@ -6,9 +6,9 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("PushoverQ")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("PushoverQ is the only opinionated queue library for Microsoft Service Bus.")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("David Pfeffer")]
 [assembly: AssemblyProduct("PushoverQ")]
 [assembly: AssemblyCopyright("Copyright © David Pfeffer 2013")]
 [assembly: AssemblyTrademark("")]

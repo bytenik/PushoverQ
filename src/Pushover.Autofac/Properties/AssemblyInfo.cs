@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("PushoverQ.Autofac")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("David Pfeffer")]
 [assembly: AssemblyProduct("PushoverQ")]
 [assembly: AssemblyCopyright("Copyright © David Pfeffer 2013")]
 [assembly: AssemblyTrademark("")]
