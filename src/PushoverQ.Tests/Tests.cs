@@ -11,11 +11,13 @@ using NUnit.Framework;
 
 namespace PushoverQ.Tests
 {
+    using System.Threading.Tasks;
+
     [TestFixture]
     public class Tests
     {
         [Test]
-        public void BringUpBus()
+        public async Task BringUpBus()
         {
             string ServerFQDN = Environment.MachineName;
             int HttpPort = 9355;
@@ -39,8 +41,8 @@ namespace PushoverQ.Tests
                                          }).Result;
 
             ManualResetEventSlim evt = new ManualResetEventSlim();
-            bus.Subscribe<string>(async m => evt.Set()).Wait();
-            bus.Publish("testing").Wait();
+            await bus.Subscribe<string>(async m => evt.Set());
+            await bus.Publish("testing");
             evt.Wait();
             Thread.Sleep(5000);
         }

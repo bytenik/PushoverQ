@@ -20,10 +20,6 @@ namespace PushoverQ
         /// <param name="confirmation"> true if a confirmation reply is needed; false otherwise. </param>
         /// <param name="expiration"> <see cref="DateTime"/> after which the message should no longer be available for receipt. </param>
         /// <param name="visibleAfter"> <see cref="DateTime"/> before which the message should not be available for receipt. </param>
-        /// <param name="timeout">
-        /// The <see cref="TimeSpan"/> after which the send is aborted. If <see cref="confirmation"/> is not false,
-        /// <see cref="timeout"/> also includes the time for a reply message to be received. Specify null for no timeout.
-        /// </param>
         /// <param name="token"> A cancellation token to monitor. Canceling the token will abort the send, or
         /// if <see cref="confirmation" /> is not false, will abort waiting for a confirmation reply. </param>
         /// <returns> The <see cref="Task"/> that completes upon successfully queuing of the message, or
@@ -33,7 +29,6 @@ namespace PushoverQ
             bool confirmation = false,
             TimeSpan? expiration = null,
             DateTime? visibleAfter = null,
-            TimeSpan? timeout = null,
             CancellationToken token = default(CancellationToken));
 
         /// <summary>
@@ -43,10 +38,6 @@ namespace PushoverQ
         /// <param name="destination"> The destination topic or endpoint, or null for a competing destination. </param>
         /// <param name="expiration"> <see cref="DateTime"/> after which the message should no longer be available for receipt. </param>
         /// <param name="visibleAfter"> <see cref="DateTime"/> before which the message should not be available for receipt. </param>
-        /// <param name="timeout">
-        /// The <see cref="TimeSpan"/> after which the send is aborted. This also includes the time for a reply message
-        /// to be received. Specify null for no timeout.
-        /// </param>
         /// <param name="token"> A cancellation token to monitor. Canceling the token will abort sending or waiting for a reply. </param>
         /// <typeparam name="T"> The type of expected reply. </typeparam>
         /// <returns> The <see cref="Task{T}"/> that completes upon successfully receiving a confirmation reply. </returns>
@@ -54,7 +45,6 @@ namespace PushoverQ
             string destination = null,
             TimeSpan? expiration = null,
             DateTime? visibleAfter = null,
-            TimeSpan? timeout = null,
             CancellationToken token = default(CancellationToken));
 
         /// <summary>
@@ -63,13 +53,11 @@ namespace PushoverQ
         /// <param name="message"> The message. </param>
         /// <param name="expiration"> <see cref="DateTime"/> after which the message should no longer be available for receipt. </param>
         /// <param name="visibleAfter"> <see cref="DateTime"/> before which the message should not be available for receipt. </param>
-        /// <param name="timeout"> The <see cref="TimeSpan"/> after which the send is aborted. </param>
         /// <param name="token"> A cancellation token to monitor. Canceling the token will abort the send. </param>
         /// <returns> The <see cref="Task"/> that completes upon successfully queuing of the message. </returns>
         Task Publish(object message,
             TimeSpan? expiration = null,
             DateTime? visibleAfter = null,
-            TimeSpan? timeout = null,
             CancellationToken token = default(CancellationToken));
 
         Task<ISubscription> Subscribe(Type type, Func<object, Envelope, Task> handler);

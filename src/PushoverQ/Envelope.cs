@@ -9,5 +9,6 @@ namespace PushoverQ
     public class Envelope
     {
         public Guid MessageId { get; set; }
+        public Guid InReplyTo { get; set; }
     }
 }

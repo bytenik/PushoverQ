@@ -31,6 +31,12 @@ namespace PushoverQ
             _subscriptions = subscriptions;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CompositeSubscription"/> class.
+        /// </summary>
+        /// <param name="subscriptions"> The subscriptions. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when subscriptions is null.</exception>
+        /// <exception cref="NullReferenceException"> Thrown when a particular subscription is null. </exception>
         public CompositeSubscription(IEnumerable<ISubscription> subscriptions)
             : this(subscriptions == null ? null : subscriptions as ISubscription[] ?? subscriptions.ToArray())
         {
@@ -38,14 +44,17 @@ namespace PushoverQ
 
         public void Dispose()
         {
-            Unsubscribe().Wait();
+            if (_disposed) throw new ObjectDisposedException(typeof(CompositeSubscription).Name);
             _disposed = true;
+
+            foreach (var subscription in _subscriptions) subscription.Dispose();
         }
 
         public Task Unsubscribe()
         {
             if (_disposed) return Task.FromResult<object>(null);
             _disposed = true;
+            
             return Task.WhenAll(_subscriptions.Select(x => x.Unsubscribe()));
         }
 

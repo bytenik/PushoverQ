@@ -55,26 +55,27 @@ namespace PushoverQ
         #region Publish
 
         /// <inheritdoc/>
-        public async Task Send(object message, string destination, bool confirmation, TimeSpan? expiration, DateTime? visibleAfter, TimeSpan? timeout, CancellationToken token)
+        public async Task Send(object message, string destination, bool confirmation, TimeSpan? expiration, DateTime? visibleAfter, CancellationToken token)
         {
             if (message == null) throw new ArgumentNullException("message");
 
             var type = message.GetType();
-            if (timeout == null) timeout = Timeout.InfiniteTimeSpan;
             if (destination == null) destination = GetTopicNameForCompete(type);
             
             var messageId = Guid.NewGuid();
 
             Logger.DebugFormat("BEGIN: Waiting to send message of type `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
 
-            await _publishSemaphore.WaitAsync(timeout.Value, token);
+            await _publishSemaphore.WaitAsync(token);
 
             Logger.TraceFormat("GO: Sending message with id `{0:n}` to the bus", messageId);
+
+            if (confirmation) throw new NotImplementedException();
 
             try
             {
                 var sender = await RetryPolicy.ExecuteAsync(() => Task<MessageSender>.Factory.FromAsync(_messagingFactory.BeginCreateMessageSender, _messagingFactory.EndCreateMessageSender, destination, null)
-                       .WithTimeoutAndCancellation(timeout.Value, token));
+                       .WithCancellation(token));
 
                 await RetryPolicy.ExecuteAsync(async () =>
                 {
@@ -92,7 +93,7 @@ namespace PushoverQ
 
                         brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
                         await Task.Factory.FromAsync(sender.BeginSend, sender.EndSend, brokeredMessage, null)
-                            .WithTimeoutAndCancellation(timeout.Value, token);
+                            .WithCancellation(token);
                     }
                 }, token);
 
@@ -107,31 +108,114 @@ namespace PushoverQ
         }
 
         /// <inheritdoc/>
-        public Task<T> Send<T>(object message, string destination, TimeSpan? expiration, DateTime? visibleAfter, TimeSpan? timeout, CancellationToken token)
+        public async Task<T> Send<T>(object message, string destination, TimeSpan? expiration, DateTime? visibleAfter, CancellationToken token)
         {
-            throw new NotImplementedException();
+            if (message == null) throw new ArgumentNullException("message");
+
+            var type = message.GetType();
+            if (destination == null) destination = GetTopicNameForCompete(type);
+
+            var messageId = Guid.NewGuid();
+
+            Logger.DebugFormat("BEGIN: Waiting to send message of type `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
+
+            await _publishSemaphore.WaitAsync(token);
+
+            Logger.TraceFormat("GO: Sending message with id `{0:n}` to the bus", messageId);
+
+            try
+            {
+                var sender = await RetryPolicy.ExecuteAsync(() => Task<MessageSender>.Factory.FromAsync(_messagingFactory.BeginCreateMessageSender, _messagingFactory.EndCreateMessageSender, destination, null)
+                       .WithCancellation(token));
+
+                var reply = await RetryPolicy.ExecuteAsync(async () =>
+                {
+                    using (var ms = new MemoryStream())
+                    {
+                        _settings.Serializer.Serialize(message, ms);
+
+                        ms.Seek(0, SeekOrigin.Begin);
+                        var brokeredMessage = new BrokeredMessage(ms, false);
+                        brokeredMessage.MessageId = messageId.ToString("n");
+                        if (visibleAfter != null)
+                            brokeredMessage.ScheduledEnqueueTimeUtc = visibleAfter.Value;
+                        if (expiration != null)
+                            brokeredMessage.TimeToLive = expiration.Value;
+
+                        brokeredMessage.ReplyTo = _settings.EndpointName;
+
+                        // set up subscription for reply
+                        var tcs = new TaskCompletionSource<T>();
+                        using (await Subscribe(_settings.EndpointName, async (m, e) =>
+                            {
+                                if (e.InReplyTo == Guid.Parse(brokeredMessage.MessageId) && m is T)
+                                {
+                                    tcs.SetResult((T)m);
+                                }
+                            }))
+                        {
+                            brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
+                            await Task.Factory.FromAsync(sender.BeginSend, sender.EndSend, brokeredMessage, null)
+                                .WithCancellation(token);
+
+                            return await tcs.Task.WithCancellation(token);
+                        }
+                    }
+                }, token);
+
+                await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(sender.BeginClose, sender.EndClose, null));
+
+                Logger.DebugFormat("END: Sent message with id `{0:n}' to the bus; got reply", messageId);
+                return reply;
+            }
+            finally
+            {
+                _publishSemaphore.Release();
+            }
         }
 
         /// <inheritdoc/>
-        public Task Publish(object message, TimeSpan? expiration, DateTime? visibleAfter, TimeSpan? timeout, CancellationToken token)
+        public Task Publish(object message, TimeSpan? expiration, DateTime? visibleAfter, CancellationToken token)
         {
             if (message == null) throw new ArgumentNullException("message");
             
             var type = message.GetType();
-            return Send(message, GetTopicNameForPublish(type), false, expiration, visibleAfter, timeout, token);
+            return Send(message, GetTopicNameForPublish(type), false, expiration, visibleAfter, token);
         }
 
         #endregion
 
         #region Subscribe
 
-        private async Task CreateTopic(string topic)
+        private async Task CreateQueue(string name)
         {
-            Logger.TraceFormat("Creating topic {0}", topic);
+            Logger.TraceFormat("Creating queue {0}", name);
 
             try
             {
-                var td = new TopicDescription(topic)
+                var qd = new QueueDescription(name)
+                {
+                    EnableBatchedOperations = true,
+                    IsAnonymousAccessible = false,
+                    MaxSizeInMegabytes = 1024 * 5, // max size allowed by bus is 5 GB
+                    RequiresDuplicateDetection = true,
+                    RequiresSession = false,
+                };
+                await RetryPolicy.ExecuteAsync(() => Task<QueueDescription>.Factory.FromAsync(_namespaceManager.BeginCreateQueue, _namespaceManager.EndCreateQueue, qd, null));
+            }
+            catch (MessagingEntityAlreadyExistsException)
+            {
+                Logger.TraceFormat("Topic {0} already exists", name);
+            }
+        }
+
+        private async Task CreateTopic(string name)
+        {
+            Logger.TraceFormat("Creating topic {0}", name);
+
+            try
+            {
+                var td = new TopicDescription(name)
                 {
                     EnableBatchedOperations = true,
                     IsAnonymousAccessible = false,
@@ -142,7 +226,7 @@ namespace PushoverQ
             }
             catch (MessagingEntityAlreadyExistsException)
             {
-                Logger.TraceFormat("Topic {0} already exists", topic);
+                Logger.TraceFormat("Topic {0} already exists", name);
             }
         }
 
@@ -295,12 +379,19 @@ namespace PushoverQ
 
         public async Task<ISubscription> Subscribe(string topic, string subscription, Func<object, Envelope, Task> handler)
         {
-            Logger.InfoFormat("Subscribing to topic: `{0}'", topic);
+            Logger.InfoFormat("Subscribing to topic: `{0}' subscription: `{1}'", topic, subscription);
 
             await CreateTopic(topic);
 
             await CreateSubscription(topic, subscription);
             var path = GetPath(topic, subscription);
+
+            return await Subscribe(path, handler);
+        }
+
+        public async Task<ISubscription> Subscribe(string path, Func<object, Envelope, Task> handler)
+        {
+            Logger.InfoFormat("Subscribing to path: `{0}'", path);
 
             for (var i = _pathToReceivers.CountValues(path); i < _settings.NumberOfReceiversPerSubscription; i++)
                 await SpinUpReceiver(path);
@@ -320,21 +411,11 @@ namespace PushoverQ
 
         public async Task<ISubscription> Subscribe(Type type, Func<object, Envelope, Task> handler)
         {
-            var types = new HashSet<Type>();
-
-            while (type != null)
-            {
-                types.Add(type);
-                type = type.BaseType;
-            }
-
-            types.UnionWith(types.SelectMany(t => t.GetInterfaces()).ToArray());
-
-            var tasks = types.SelectMany(t => new[]
+            var tasks = new[]
                 {
-                    Subscribe(GetTopicNameForPublish(t), _settings.EndpointName, handler),
-                    Subscribe(GetTopicNameForCompete(t), _settings.ApplicationName, handler)
-                });
+                    Subscribe(GetTopicNameForPublish(type), _settings.EndpointName, handler),
+                    Subscribe(GetTopicNameForCompete(type), _settings.ApplicationName, handler)
+                };
 
             var subscriptions = await Task.WhenAll(tasks);
             return new CompositeSubscription(subscriptions);
@@ -352,9 +433,17 @@ namespace PushoverQ
             return new RPC.Proxy<T>(this).GetTransparentProxy();
         }
 
-        public Task<ISubscription> Subscribe<T>(Func<T> resolver)
+        public async Task<ISubscription> Subscribe<T>(Func<T> resolver)
         {
-            throw new NotImplementedException();
+            Func<object, Envelope, Task> handler = (m, e) =>
+                {
+
+                };
+
+            var competeSub = await Subscribe(GetTopicNameForCompete(typeof(T)), _settings.ApplicationName, handler);
+            var publishSub = await Subscribe(GetTopicNameForPublish(typeof(T)), _settings.EndpointName, handler);
+
+            return new CompositeSubscription(competeSub, publishSub);
         }
 
         #region Disposal

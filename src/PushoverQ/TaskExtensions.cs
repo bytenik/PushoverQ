@@ -86,22 +86,19 @@ namespace PushoverQ
         /// </summary>
         /// <typeparam name="T">The result type of the task</typeparam>
         /// <param name="task">the uncancellable task</param>
-        /// <param name="timeout">timeout after which to give up</param>
         /// <param name="token">token to monitor for cancellation</param>
         /// <returns></returns>
-        public static async Task<T> WithTimeoutAndCancellation<T>(this Task<T> task, TimeSpan timeout, CancellationToken token)
+        public static async Task<T> WithCancellation<T>(this Task<T> task, CancellationToken token)
         {
 #pragma warning disable 4014
             task.IgnoreExceptions();
 
-            var timeoutTask = TimeoutAsync(timeout, CancellationToken.None);
             var cancelTask = token.ToTask();
 
-            timeoutTask.IgnoreExceptions();
             cancelTask.IgnoreExceptions();
 #pragma warning restore 4014
 
-            await Task.WhenAny(task, timeoutTask, cancelTask);
+            await Task.WhenAny(task, cancelTask);
             return task.Result;
         }
 
@@ -109,22 +106,19 @@ namespace PushoverQ
         /// A naive implementation of timeout and cancellation over an uncancellable <see cref="Task"/>.
         /// </summary>
         /// <param name="task">the uncancellable task</param>
-        /// <param name="timeout">timeout after which to give up</param>
         /// <param name="token">token to monitor for cancellation</param>
         /// <returns></returns>
-        public static async Task WithTimeoutAndCancellation(this Task task, TimeSpan timeout, CancellationToken token)
+        public static async Task WithCancellation(this Task task, CancellationToken token)
         {
 #pragma warning disable 4014
             task.IgnoreExceptions();
 
-            var timeoutTask = TimeoutAsync(timeout, CancellationToken.None);
             var cancelTask = token.ToTask();
 
-            timeoutTask.IgnoreExceptions();
             cancelTask.IgnoreExceptions();
 #pragma warning restore 4014
 
-            await Task.WhenAny(task, timeoutTask, cancelTask);
+            await Task.WhenAny(task, cancelTask);
         }
 
         public static Task<T> AsTask<T>(this Exception e)
