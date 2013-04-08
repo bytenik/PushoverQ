@@ -15,6 +15,7 @@ using Microsoft.Practices.TransientFaultHandling;
 using Microsoft.ServiceBus;
 using Microsoft.ServiceBus.Messaging;
 using PushoverQ.Configuration;
+using PushoverQ.RPC;
 
 namespace PushoverQ
 {
@@ -435,15 +436,29 @@ namespace PushoverQ
 
         public async Task<ISubscription> Subscribe<T>(Func<T> resolver)
         {
-            Func<object, Envelope, Task> handler = (m, e) =>
+            var type = typeof(T);
+            Func<object, Envelope, Task> handler = async (m, e) =>
                 {
+                    var impl = resolver();
+                    var msg = m as MethodCallCommand;
+                    if (msg == null) return;
 
+                    var mi = type.GetMethod(msg.MethodName, msg.ArgumentTypes.Select(Type.GetType).ToArray());
+                    var returnValue = mi.Invoke(impl, msg.Arguments);
+
+                    if (returnValue is Task) await (Task)returnValue;
+
+                    // todo: reply here if needed
                 };
 
-            var competeSub = await Subscribe(GetTopicNameForCompete(typeof(T)), _settings.ApplicationName, handler);
-            var publishSub = await Subscribe(GetTopicNameForPublish(typeof(T)), _settings.EndpointName, handler);
+            var types = type.GetInterfaces();
+            var subscriptionTasks = types.SelectMany(x => new[]
+                {
+                    Subscribe(GetTopicNameForCompete(type), _settings.ApplicationName, handler),
+                    Subscribe(GetTopicNameForPublish(type), _settings.EndpointName, handler)
+                });
 
-            return new CompositeSubscription(competeSub, publishSub);
+            return new CompositeSubscription(await Task.WhenAll(subscriptionTasks));
         }
 
         #region Disposal
