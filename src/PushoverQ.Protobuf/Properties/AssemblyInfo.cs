@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("PushoverQ.Protobuf")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("ProtoBuf serialization for PushoverQ.")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("PushoverQ.Protobuf")]
-[assembly: AssemblyCopyright("Copyright ©  2013")]
+[assembly: AssemblyCompany("David Pfeffer")]
+[assembly: AssemblyProduct("PushoverQ")]
+[assembly: AssemblyCopyright("Copyright © David Pfeffer 2013")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.0.*")]
-[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.1")]
 [assembly: AssemblyFileVersion("1.0.0.0")]

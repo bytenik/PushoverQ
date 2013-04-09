@@ -290,17 +290,19 @@ namespace PushoverQ
             return null;
         }
 
-        private readonly ConcurrentMultiMap<string, MessageReceiver> _pathToReceivers = new ConcurrentMultiMap<string, MessageReceiver>();
+        private readonly ConcurrentMultiMap<string, CancellationTokenSource> _pathToReceiverCancelSources = new ConcurrentMultiMap<string, CancellationTokenSource>();
         private readonly ConcurrentMultiMap<string, Func<object, Envelope, Task>> _pathToHandlers = new ConcurrentMultiMap<string, Func<object, Envelope, Task>>();
 
         private async Task<MessageReceiver> SpinUpReceiver(string path)
         {
             var receiver = await RetryPolicy.ExecuteAsync(() => Task<MessageReceiver>.Factory.FromAsync(_messagingFactory.BeginCreateMessageReceiver, _messagingFactory.EndCreateMessageReceiver, path, null));
-            _pathToReceivers.Add(path, receiver);
+            
+            var cts = new CancellationTokenSource();
+            _pathToReceiverCancelSources.Add(path, cts);
 
             Task.Run(async () =>
                 {
-                    while (true)
+                    while (!cts.Token.IsCancellationRequested)
                     {
                         var brokeredMessage = await RetryPolicy.ExecuteAsync(() => Task<BrokeredMessage>.Factory.FromAsync(receiver.BeginReceive, receiver.EndReceive, TimeSpan.FromMinutes(5), null));
                         if (brokeredMessage == null) continue; // no message here
@@ -335,7 +337,13 @@ namespace PushoverQ
                             // oh well...
                         }
                     }
-                });
+
+                    await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(receiver.BeginClose, receiver.EndClose, null));
+                    
+                    _pathToReceiverCancelSources.Remove(path, cts);
+
+                    throw new OperationCanceledException(cts.Token);
+                }, cts.Token);
 
             return receiver;
         }
@@ -364,7 +372,7 @@ namespace PushoverQ
         {
             Logger.InfoFormat("Subscribing to path: `{0}'", path);
 
-            for (var i = _pathToReceivers.CountValues(path); i < _settings.NumberOfReceiversPerSubscription; i++)
+            for (var i = _pathToReceiverCancelSources.CountValues(path); i < _settings.NumberOfReceiversPerSubscription; i++)
                 await SpinUpReceiver(path);
 
             _pathToHandlers.Add(path, handler);
@@ -377,10 +385,9 @@ namespace PushoverQ
                         if (_pathToHandlers.CountValues(path) != 0) return;
 
                         // shut down all receivers
-                        var receivers = this._pathToReceivers[path].ToArray();
-                        _pathToReceivers.Remove(path);
-                        var tasks = receivers.Select(x => Task.Factory.FromAsync(x.BeginClose, x.EndClose, null));
-                        await Task.WhenAll(tasks);
+                        var cancellationSources = _pathToReceiverCancelSources[path].ToArray();
+                        foreach (var cts in cancellationSources)
+                            cts.Cancel();
                     });
         }
 
