@@ -27,7 +27,9 @@ namespace PushoverQ
             if (ex is MessagingCommunicationException)
                 return ((MessagingCommunicationException) ex).IsTransient;
             if (ex is MessagingException)
-                return ex.Message.Contains("please retry the operation") || ex.Message.Contains("service was not avaliable");
+                return ex.Message.Contains("please retry the operation")
+                    || ex.Message.Contains("service was not avaliable")
+                    || ex.Message.Contains("Provider Internal Error");
             if (ex is CommunicationException)
                 return true;
             if (ex is SocketException)

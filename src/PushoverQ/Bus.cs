@@ -323,7 +323,7 @@ namespace PushoverQ
                         object message;
                         using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
 
-                        var envelope = new Envelope {MessageId = Guid.Parse(brokeredMessage.MessageId)};
+                        var envelope = new Envelope {MessageId = Guid.Parse(brokeredMessage.MessageId), SequenceNumber = brokeredMessage.SequenceNumber};
 
                         var ex = await HandleMessage(message, envelope, _pathToHandlers[path]);
 
