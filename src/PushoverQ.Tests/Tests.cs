@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Security.AccessControl;
 using System.Text;
 using System.Threading;
 using Microsoft.ServiceBus;
@@ -23,6 +24,8 @@ namespace PushoverQ.Tests
             const int HttpPort = 9355;
             const int TcpPort = 9354;
             const string ServiceNamespace = "ServiceBusDefaultNamespace";
+
+            Common.Logging.LogManager.Adapter = new Common.Logging.NLog.NLogLoggerFactoryAdapter(new NameValueCollection { { "configType", "FILE" }, {"configFile", "~/NLog.config" } } );
 
             var connBuilder = new ServiceBusConnectionStringBuilder { ManagementPort = HttpPort, RuntimePort = TcpPort };
             connBuilder.Endpoints.Add(new UriBuilder { Scheme = "sb", Host = serverFQDN, Path = ServiceNamespace }.Uri);
