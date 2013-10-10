@@ -383,7 +383,10 @@ namespace PushoverQ
 
         private string GetTopicName(Type type)
         {
-            return type.FullName;
+            var name = type.FullName;
+            name = name.Replace("[]", "Array");
+            name = name.Replace("<", "IEnumerable").Replace(">", string.Empty);
+            return name;
         }
 
         public async Task<ISubscription> Subscribe(Type type, Func<object, Envelope, Task> handler)
