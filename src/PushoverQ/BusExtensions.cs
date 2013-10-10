@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 
 namespace PushoverQ
 {
+    /// <summary>
+    /// The bus extensions.
+    /// </summary>
     public static class BusExtensions
     {
         public static Task<ISubscription> Subscribe<T>(this IBus bus, Consumes<T>.Message consumer) where T : class

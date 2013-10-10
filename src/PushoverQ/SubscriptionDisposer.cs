@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Practices.TransientFaultHandling;
 using Microsoft.ServiceBus;
+using RetryPolicy = Microsoft.Practices.TransientFaultHandling.RetryPolicy;
 
 namespace PushoverQ
 {
@@ -39,7 +40,7 @@ namespace PushoverQ
 
         public async Task Unsubscribe()
         {
-            await _retryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(_namespaceManager.BeginDeleteSubscription, _namespaceManager.EndDeleteSubscription, _topic, _subscription, null));
+            await _retryPolicy.ExecuteAsync(() => _namespaceManager.DeleteSubscriptionAsync(_topic, _subscription));
             GC.SuppressFinalize(this);
         }
 

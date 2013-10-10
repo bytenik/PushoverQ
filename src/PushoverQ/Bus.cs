@@ -16,6 +16,7 @@ using Microsoft.ServiceBus;
 using Microsoft.ServiceBus.Messaging;
 using PushoverQ.Configuration;
 using PushoverQ.RPC;
+using RetryPolicy = Microsoft.Practices.TransientFaultHandling.RetryPolicy;
 
 namespace PushoverQ
 {
@@ -304,19 +305,19 @@ namespace PushoverQ
                 {
                     while (!cts.Token.IsCancellationRequested)
                     {
-                        var brokeredMessage = await RetryPolicy.ExecuteAsync(() => Task<BrokeredMessage>.Factory.FromAsync(receiver.BeginReceive, receiver.EndReceive, TimeSpan.FromMinutes(5), null));
+                        var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), cts.Token);
                         if (brokeredMessage == null) continue; // no message here
 
                         if (brokeredMessage.ContentType == null)
                         {
-                            await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
+                            await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), cts.Token);
                             continue;
                         }
 
                         var type = Type.GetType(brokeredMessage.ContentType, false);
                         if (type == null)
                         {
-                            await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, null));
+                            await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), cts.Token);
                             continue;
                         }
 
@@ -329,8 +330,8 @@ namespace PushoverQ
 
                         try
                         {
-                            if (ex == null) await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginComplete, brokeredMessage.EndComplete, null));
-                            else await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(brokeredMessage.BeginDeadLetter, brokeredMessage.EndDeadLetter, "A consumer exception occurred", ex.ToString(), null));
+                            if (ex == null) await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), cts.Token);
+                            else await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), cts.Token);
                         }
                         catch (MessageLockLostException)
                         {
@@ -338,7 +339,7 @@ namespace PushoverQ
                         }
                     }
 
-                    await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(receiver.BeginClose, receiver.EndClose, null));
+                    await RetryPolicy.ExecuteAsync(() => receiver.CloseAsync());
                     
                     _pathToReceiverCancelSources.Remove(path, cts);
 
