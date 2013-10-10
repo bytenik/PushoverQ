@@ -13,10 +13,10 @@ namespace PushoverQ
     public interface IBus : IDisposable
     {
         /// <summary>
-        /// Sends a message to a single destination.
+        /// Sends a message.
         /// </summary>
         /// <param name="message"> The message. </param>
-        /// <param name="destination"> The destination topic or endpoint, or null for a competing destination. </param>
+        /// <param name="destination"> The destination topic or endpoint, or null for the default (conventions-based) destination. </param>
         /// <param name="confirmation"> true if a confirmation reply is needed; false otherwise. </param>
         /// <param name="expiration"> <see cref="DateTime"/> after which the message should no longer be available for receipt. </param>
         /// <param name="visibleAfter"> <see cref="DateTime"/> before which the message should not be available for receipt. </param>
@@ -32,10 +32,10 @@ namespace PushoverQ
             CancellationToken token = default(CancellationToken));
 
         /// <summary>
-        /// Sends a message to a single destination, and waits for a reply of type <see cref="T"/>.
+        /// Sends a message, and waits for a single reply of type <see cref="T"/>.
         /// </summary>
         /// <param name="message"> The message. </param>
-        /// <param name="destination"> The destination topic or endpoint, or null for a competing destination. </param>
+        /// <param name="destination"> The destination topic or endpoint, or null for the default (conventions-based) destination. </param>
         /// <param name="expiration"> <see cref="DateTime"/> after which the message should no longer be available for receipt. </param>
         /// <param name="visibleAfter"> <see cref="DateTime"/> before which the message should not be available for receipt. </param>
         /// <param name="token"> A cancellation token to monitor. Canceling the token will abort sending or waiting for a reply. </param>
@@ -47,25 +47,14 @@ namespace PushoverQ
             DateTime? visibleAfter = null,
             CancellationToken token = default(CancellationToken));
 
-        /// <summary>
-        /// Publishes a message to all subscribed endpoints.
-        /// </summary>
-        /// <param name="message"> The message. </param>
-        /// <param name="expiration"> <see cref="DateTime"/> after which the message should no longer be available for receipt. </param>
-        /// <param name="visibleAfter"> <see cref="DateTime"/> before which the message should not be available for receipt. </param>
-        /// <param name="token"> A cancellation token to monitor. Canceling the token will abort the send. </param>
-        /// <returns> The <see cref="Task"/> that completes upon successfully queuing of the message. </returns>
-        Task Publish(object message,
-            TimeSpan? expiration = null,
-            DateTime? visibleAfter = null,
-            CancellationToken token = default(CancellationToken));
-
         Task<ISubscription> Subscribe(Type type, Func<object, Envelope, Task> handler);
+
         Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler) where T : class;
 
         Task<ISubscription> Subscribe(string topic, string subscription, Func<object, Envelope, Task> handler);
 
         T GetProxy<T>();
+
         Task<ISubscription> Subscribe<T>(Func<T> resolver);
     }
 }

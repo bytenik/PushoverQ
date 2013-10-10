@@ -50,7 +50,7 @@ namespace PushoverQ.RPC
 
             if (method.ReturnType == typeof(void))
             {
-                _bus.Publish(command).Wait();
+                _bus.Send(command).Wait();
                 return new ReturnMessage(null, new object[0], 0, message.LogicalCallContext, message);
             }
             else if (method.ReturnType == typeof(Task))
