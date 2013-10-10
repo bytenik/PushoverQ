@@ -42,13 +42,11 @@ namespace PushoverQ
             public NaiveTimeoutException(string message)
                 : base(message)
             {
-                
             }
 
             public NaiveTimeoutException(string message, Exception innerException)
                 : base(message, innerException)
             {
-
             }
         }
 

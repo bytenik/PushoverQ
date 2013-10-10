@@ -452,7 +452,7 @@ namespace PushoverQ
                 var mi = type.GetMethod(msg.MethodName, msg.ArgumentTypes.Select(Type.GetType).ToArray());
                 var returnValue = mi.Invoke(impl, msg.Arguments);
 
-                if (returnValue is Task) await (Task)returnValue;
+                if (returnValue is Task) await(Task)returnValue;
 
                 // todo: reply here if needed
             };
@@ -472,7 +472,6 @@ namespace PushoverQ
 
         public void Dispose(bool disposing)
         {
-
         }
 
         public void Dispose()

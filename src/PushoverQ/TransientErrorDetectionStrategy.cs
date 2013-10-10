@@ -25,7 +25,7 @@ namespace PushoverQ
             if (ex is ServerTooBusyException)
                 return true;
             if (ex is MessagingCommunicationException)
-                return ((MessagingCommunicationException) ex).IsTransient;
+                return ((MessagingCommunicationException)ex).IsTransient;
             if (ex is MessagingException)
                 return ex.Message.Contains("please retry the operation")
                     || ex.Message.Contains("service was not avaliable")
@@ -33,7 +33,8 @@ namespace PushoverQ
             if (ex is CommunicationException)
                 return true;
             if (ex is SocketException)
-                return ((SocketException)ex).ErrorCode == (int) SocketError.TimedOut;
+                return ((SocketException)ex).ErrorCode == (int)SocketError.TimedOut
+                    || ((SocketException)ex).ErrorCode == (int)SocketError.ConnectionReset;
             if (ex is UnauthorizedAccessException)
                 return ex.Message.Contains("The remote name could not be resolved") 
                     || ex.Message.Contains("The underlying connection was closed")

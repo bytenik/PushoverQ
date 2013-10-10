@@ -70,7 +70,7 @@ namespace PushoverQ
         public void Add(TKey key, TValue value)
         {
             _dictionary.AddOrUpdate(key,
-                                    k => new ConcurrentSet<TValue>() {value},
+                                    k => new ConcurrentSet<TValue>() { value },
                                     (k, set) =>
                                         {
                                             set.Add(value);

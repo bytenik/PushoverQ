@@ -21,17 +21,17 @@ namespace PushoverQ.Json
         public BusJsonSerializer(JsonSerializerSettings settings)
         {
             _settings = settings;
-            _serializer = new ThreadLocal<JsonSerializer>(() => JsonSerializer.Create(_settings));
+            _serializer = JsonSerializer.Create(_settings);
         }
 
-        private readonly ThreadLocal<JsonSerializer> _serializer;
+        private readonly JsonSerializer _serializer;
 
         public void Serialize(object obj, Stream stream)
         {
             using (var ms = new MemoryStream())
             using (var sw = new StreamWriter(ms) { AutoFlush = true })
             {
-                _serializer.Value.Serialize(sw, obj);
+                _serializer.Serialize(sw, obj);
                 ms.Seek(0, SeekOrigin.Begin);
                 ms.CopyTo(stream);
             }
@@ -40,13 +40,13 @@ namespace PushoverQ.Json
         public T Deserialize<T>(Stream stream) where T : class
         {
             using (var sr = new StreamReader(stream))
-                return _serializer.Value.Deserialize<T>(new JsonTextReader(sr));
+                return _serializer.Deserialize<T>(new JsonTextReader(sr));
         }
 
         public object Deserialize(Type type, Stream stream)
         {
             using (var sr = new StreamReader(stream))
-                return _serializer.Value.Deserialize(new JsonTextReader(sr), type);
+                return _serializer.Deserialize(new JsonTextReader(sr), type);
         }
     }
 }
