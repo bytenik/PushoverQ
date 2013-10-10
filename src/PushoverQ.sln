@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
+VisualStudioVersion = 12.0.20827.3
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushoverQ", "PushoverQ\PushoverQ.csproj", "{FDD973FB-E499-4207-A834-1BC0289E69DF}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushoverQ.Tests", "PushoverQ.Tests\PushoverQ.Tests.csproj", "{27934EC9-8E77-419B-8640-8282B0692FDA}"
