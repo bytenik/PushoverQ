@@ -32,14 +32,14 @@ namespace PushoverQ
             CancellationToken token = default(CancellationToken));
 
         /// <summary>
-        /// Sends a message, and waits for a single reply of type <see cref="T"/>.
+        /// Sends a message, and waits for a single reply of messageType <see cref="T"/>.
         /// </summary>
         /// <param name="message"> The message. </param>
         /// <param name="destination"> The destination topic or endpoint, or null for the default (conventions-based) destination. </param>
         /// <param name="expiration"> <see cref="DateTime"/> after which the message should no longer be available for receipt. </param>
         /// <param name="visibleAfter"> <see cref="DateTime"/> before which the message should not be available for receipt. </param>
         /// <param name="token"> A cancellation token to monitor. Canceling the token will abort sending or waiting for a reply. </param>
-        /// <typeparam name="T"> The type of expected reply. </typeparam>
+        /// <typeparam name="T"> The messageType of expected reply. </typeparam>
         /// <returns> The <see cref="Task{T}"/> that completes upon successfully receiving a confirmation reply. </returns>
         Task<T> Send<T>(object message,
             string destination = null,
@@ -47,11 +47,17 @@ namespace PushoverQ
             DateTime? visibleAfter = null,
             CancellationToken token = default(CancellationToken));
 
-        Task<ISubscription> Subscribe(Type type, Func<object, Envelope, Task> handler);
+        Task<ISubscription> Subscribe(Type messageType, Func<object, Envelope, Task> handler);
+
+        Task<ISubscription> Subscribe(Type messageType, string subscription, Func<object, Envelope, Task> handler);
+
+        Task<ISubscription> Subscribe(string topic, string subscription, Func<object, Envelope, Task> handler);
 
         Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler) where T : class;
 
-        Task<ISubscription> Subscribe(string topic, string subscription, Func<object, Envelope, Task> handler);
+        Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler) where T : class;
+
+        Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<T, Envelope, Task> handler) where T : class;
 
         T GetProxy<T>();
 

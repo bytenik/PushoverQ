@@ -24,6 +24,11 @@ namespace PushoverQ.Configuration
         public ISerializer Serializer { get; set; }
 
         /// <summary>
+        /// Gets or sets the topic name resolver.
+        /// </summary>
+        public Func<Type, string> TopicNameResolver { get; set; } 
+
+        /// <summary>
         /// Gets or sets the bus connection string.
         /// </summary>
         public string ConnectionString { get; set; }
@@ -44,6 +49,7 @@ namespace PushoverQ.Configuration
             ApplicationName = "app";
             MaxMessagesInFlight = 10;
             NumberOfReceiversPerSubscription = 5;
+            TopicNameResolver = t => t.FullName.Replace("[]", "_Array");
             Serializer = new BinaryFormatterSerializer();
         }
     }
