@@ -17,6 +17,19 @@ namespace PushoverQ
             return bus.Subscribe<T>(() => consumer);
         }
 
+        public static async Task<T> Consume<T>(this IBus bus) where T : class
+        {
+            var tcs = new TaskCompletionSource<T>();
+            using (bus.Subscribe<T>((m, e) =>
+            {
+                tcs.SetResult(m);
+                return null;
+            }))
+            {
+                return await tcs.Task;
+            }
+        }
+
         public static Task<ISubscription> Subscribe<T>(this IBus bus, string topic, string subscription, Consumes<T>.Message consumer) where T : class
         {
             return bus.Subscribe<T>(topic, subscription, () => consumer);

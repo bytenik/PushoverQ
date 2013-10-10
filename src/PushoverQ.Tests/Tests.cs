@@ -31,7 +31,7 @@ namespace PushoverQ.Tests
 
             var evt = new ManualResetEventSlim();
             await bus.Subscribe<string>(async m => evt.Set());
-            await bus.Publish("testing");
+            await bus.Send("testing");
             evt.Wait();
             Thread.Sleep(5000);
         }

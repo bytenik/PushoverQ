@@ -23,8 +23,8 @@ namespace PushoverQ
     public sealed class Bus : IBus, IDisposable
     {
         private readonly BusSettings _settings;
-        private readonly NamespaceManager _namespaceManager;
-        private readonly MessagingFactory _messagingFactory;
+        private readonly NamespaceManager _nm;
+        private readonly MessagingFactory _mf;
         private readonly SemaphoreSlim _publishSemaphore;
         private static readonly RetryPolicy RetryPolicy = new RetryPolicy<TransientErrorDetectionStrategy>(
             new ExponentialBackoff("Retry exponentially", int.MaxValue, TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(30), true));
@@ -45,8 +45,8 @@ namespace PushoverQ
         {
             _settings = settings;
 
-            _messagingFactory = MessagingFactory.CreateFromConnectionString(settings.ConnectionString);
-            _namespaceManager = NamespaceManager.CreateFromConnectionString(settings.ConnectionString);
+            _mf = MessagingFactory.CreateFromConnectionString(settings.ConnectionString);
+            _nm = NamespaceManager.CreateFromConnectionString(settings.ConnectionString);
             _publishSemaphore = new SemaphoreSlim(settings.MaxMessagesInFlight);
         }
 
@@ -62,7 +62,7 @@ namespace PushoverQ
             if (message == null) throw new ArgumentNullException("message");
 
             var type = message.GetType();
-            if (destination == null) destination = GetTopicNameForCompete(type);
+            if (destination == null) destination = GetTopicName(type);
             
             var messageId = Guid.NewGuid();
 
@@ -76,8 +76,7 @@ namespace PushoverQ
 
             try
             {
-                var sender = await RetryPolicy.ExecuteAsync(() => Task<MessageSender>.Factory.FromAsync(_messagingFactory.BeginCreateMessageSender, _messagingFactory.EndCreateMessageSender, destination, null)
-                       .WithCancellation(token));
+                var sender = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageSenderAsync(destination).WithCancellation(token), token);
 
                 await RetryPolicy.ExecuteAsync(async () =>
                 {
@@ -94,12 +93,11 @@ namespace PushoverQ
                             brokeredMessage.TimeToLive = expiration.Value;
 
                         brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
-                        await Task.Factory.FromAsync(sender.BeginSend, sender.EndSend, brokeredMessage, null)
-                            .WithCancellation(token);
+                        await sender.SendAsync(brokeredMessage).WithCancellation(token);
                     }
                 }, token);
 
-                await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(sender.BeginClose, sender.EndClose, null));
+                await RetryPolicy.ExecuteAsync(() => sender.CloseAsync(), token);
 
                 Logger.DebugFormat("END: Sent message with id `{0:n}' to the bus", messageId);
             }
@@ -115,7 +113,7 @@ namespace PushoverQ
             if (message == null) throw new ArgumentNullException("message");
 
             var type = message.GetType();
-            if (destination == null) destination = GetTopicNameForCompete(type);
+            if (destination == null) destination = GetTopicName(type);
 
             var messageId = Guid.NewGuid();
 
@@ -127,8 +125,7 @@ namespace PushoverQ
 
             try
             {
-                var sender = await RetryPolicy.ExecuteAsync(() => Task<MessageSender>.Factory.FromAsync(_messagingFactory.BeginCreateMessageSender, _messagingFactory.EndCreateMessageSender, destination, null)
-                       .WithCancellation(token));
+                var sender = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageSenderAsync(destination).WithCancellation(token), token);
 
                 var reply = await RetryPolicy.ExecuteAsync(async () =>
                 {
@@ -157,15 +154,14 @@ namespace PushoverQ
                             }))
                         {
                             brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
-                            await Task.Factory.FromAsync(sender.BeginSend, sender.EndSend, brokeredMessage, null)
-                                .WithCancellation(token);
+                            await sender.SendAsync(brokeredMessage).WithCancellation(token);
 
                             return await tcs.Task.WithCancellation(token);
                         }
                     }
                 }, token);
 
-                await RetryPolicy.ExecuteAsync(() => Task.Factory.FromAsync(sender.BeginClose, sender.EndClose, null));
+                await RetryPolicy.ExecuteAsync(() => sender.CloseAsync(), token);
 
                 Logger.DebugFormat("END: Sent message with id `{0:n}' to the bus; got reply", messageId);
                 return reply;
@@ -174,15 +170,6 @@ namespace PushoverQ
             {
                 _publishSemaphore.Release();
             }
-        }
-
-        /// <inheritdoc/>
-        public Task Publish(object message, TimeSpan? expiration, DateTime? visibleAfter, CancellationToken token)
-        {
-            if (message == null) throw new ArgumentNullException("message");
-            
-            var type = message.GetType();
-            return Send(message, GetTopicNameForPublish(type), false, expiration, visibleAfter, token);
         }
 
         #endregion
@@ -202,8 +189,9 @@ namespace PushoverQ
                     MaxSizeInMegabytes = 1024 * 5, // max size allowed by bus is 5 GB
                     RequiresDuplicateDetection = true,
                     RequiresSession = false,
+                    AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
                 };
-                await RetryPolicy.ExecuteAsync(() => Task<QueueDescription>.Factory.FromAsync(_namespaceManager.BeginCreateQueue, _namespaceManager.EndCreateQueue, qd, null));
+                await RetryPolicy.ExecuteAsync(() => _nm.CreateQueueAsync(qd));
             }
             catch (MessagingEntityAlreadyExistsException)
             {
@@ -223,8 +211,9 @@ namespace PushoverQ
                     IsAnonymousAccessible = false,
                     MaxSizeInMegabytes = 1024 * 5, // max size allowed by bus is 5 GB
                     RequiresDuplicateDetection = true,
+                    AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
                 };
-                await RetryPolicy.ExecuteAsync(() => Task<TopicDescription>.Factory.FromAsync(_namespaceManager.BeginCreateTopic, _namespaceManager.EndCreateTopic, td, null));
+                await RetryPolicy.ExecuteAsync(() => _nm.CreateTopicAsync(td));
             }
             catch (MessagingEntityAlreadyExistsException)
             {
@@ -241,9 +230,10 @@ namespace PushoverQ
                 var sd = new SubscriptionDescription(topic, subscription)
                 {
                     RequiresSession = false,
-                    EnableBatchedOperations = true
+                    EnableBatchedOperations = true,
+                    AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
                 };
-                await RetryPolicy.ExecuteAsync(() => Task<SubscriptionDescription>.Factory.FromAsync(_namespaceManager.BeginCreateSubscription, _namespaceManager.EndCreateSubscription, sd, null));
+                await RetryPolicy.ExecuteAsync(() => _nm.CreateSubscriptionAsync(sd));
             }
             catch (MessagingEntityAlreadyExistsException)
             {
@@ -253,8 +243,7 @@ namespace PushoverQ
 
         private async Task<Exception> HandleMessage(object message, Envelope envelope, IEnumerable<Func<object, Envelope, Task>> handlers)
         {
-            if (message == null)
-                return null;
+            if (message == null) return null;
             if (envelope == null) throw new ArgumentNullException("envelope");
 
             Logger.DebugFormat("BEGIN: Handling message with id `{0:n}' and type `{1}'", envelope.MessageId, message.GetType().FullName);
@@ -296,7 +285,7 @@ namespace PushoverQ
 
         private async Task<MessageReceiver> SpinUpReceiver(string path)
         {
-            var receiver = await RetryPolicy.ExecuteAsync(() => Task<MessageReceiver>.Factory.FromAsync(_messagingFactory.BeginCreateMessageReceiver, _messagingFactory.EndCreateMessageReceiver, path, null));
+            var receiver = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageReceiverAsync(path));
             
             var cts = new CancellationTokenSource();
             _pathToReceiverCancelSources.Add(path, cts);
@@ -392,12 +381,7 @@ namespace PushoverQ
                     });
         }
 
-        private string GetTopicNameForCompete(Type type)
-        {
-            return type.FullName + "..Compete";
-        }
-
-        private string GetTopicNameForPublish(Type type)
+        private string GetTopicName(Type type)
         {
             return type.FullName;
         }
@@ -406,8 +390,7 @@ namespace PushoverQ
         {
             var tasks = new[]
                 {
-                    Subscribe(GetTopicNameForPublish(type), _settings.EndpointName, handler),
-                    Subscribe(GetTopicNameForCompete(type), _settings.ApplicationName, handler)
+                    Subscribe(GetTopicName(type), _settings.EndpointName, handler),
                 };
 
             var subscriptions = await Task.WhenAll(tasks);
@@ -446,8 +429,7 @@ namespace PushoverQ
             var types = type.GetInterfaces();
             var subscriptionTasks = types.SelectMany(x => new[]
                 {
-                    Subscribe(GetTopicNameForCompete(type), _settings.ApplicationName, handler),
-                    Subscribe(GetTopicNameForPublish(type), _settings.EndpointName, handler)
+                    Subscribe(GetTopicName(type), _settings.ApplicationName, handler),
                 });
 
             return new CompositeSubscription(await Task.WhenAll(subscriptionTasks));
