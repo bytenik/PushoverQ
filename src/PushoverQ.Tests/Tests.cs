@@ -70,15 +70,18 @@ namespace PushoverQ.Tests
         [Test]
         public async Task Publish1KBMessage()
         {
+            const int MessageCountToPublish = 1;
             const int MessageSize = 1 * 1024;
-            Console.WriteLine("Message size: {0} bytes.", MessageSize);
             var consumer = _testBus.Consume<byte[]>();
 
-            await TimedPublishByte(MessageSize);
+            var elapsed = await TimedPublishByte(MessageSize, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
 
             var result = await consumer;
             Assert.IsInstanceOf<byte[]>(result);
             Assert.IsTrue(result.Length == MessageSize);
+            Assert.IsTrue(publishAverage < 500);
         }
 
         /// <summary>
@@ -90,15 +93,18 @@ namespace PushoverQ.Tests
         [Test]
         public async Task Publish10KBMessage()
         {
+            const int MessageCountToPublish = 1;
             const int MessageSize = 10 * 1024;
-            Console.WriteLine("Message size: {0} bytes.", MessageSize);
             var consumer = _testBus.Consume<byte[]>();
 
-            await TimedPublishByte(MessageSize);
+            var elapsed = await TimedPublishByte(MessageSize, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
 
             var result = await consumer;
             Assert.IsInstanceOf<byte[]>(result);
             Assert.IsTrue(result.Length == MessageSize);
+            Assert.IsTrue(publishAverage < 500);
         }
 
         /// <summary>
@@ -110,15 +116,18 @@ namespace PushoverQ.Tests
         [Test]
         public async Task Publish1MBMessage()
         {
+            const int MessageCountToPublish = 1;
             const int MessageSize = 1 * 1024 * 1024;
-            Console.WriteLine("Message size: {0} bytes.", MessageSize);
             var consumer = _testBus.Consume<byte[]>();
 
-            await TimedPublishByte(MessageSize);
+            var elapsed = await TimedPublishByte(MessageSize, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
 
             var result = await consumer;
             Assert.IsInstanceOf<byte[]>(result);
             Assert.IsTrue(result.Length == MessageSize);
+            Assert.IsTrue(publishAverage < 500);
         }
 
         /// <summary>
@@ -130,27 +139,30 @@ namespace PushoverQ.Tests
         [Test]
         public async Task Publish10MBMessage()
         {
+            const int MessageCountToPublish = 1;
             const int MessageSize = 10 * 1024 * 1024;
-            Console.WriteLine("Message size: {0} bytes.", MessageSize);
             var consumer = _testBus.Consume<byte[]>();
 
-            await TimedPublishByte(MessageSize);
+            var elapsed = await TimedPublishByte(MessageSize, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
 
             var result = await consumer;
             Assert.IsInstanceOf<byte[]>(result);
             Assert.IsTrue(result.Length == MessageSize);
+            Assert.IsTrue(publishAverage < 500);
         }
 
         /// <summary>
-        /// Publish 5000 messages and ensure that the messages are received back.
+        /// Publish 500 messages and ensure that the messages are received back.
         /// </summary>
         /// <returns>
         /// The <see cref="Task"/>.
         /// </returns>
         [Test]
-        public async Task Publish5000StringMessages()
+        public async Task Publish500StringMessages()
         {
-            const int MessageCountToPublish = 5000;
+            const int MessageCountToPublish = 500;
             var resultList = new List<string>();
             await _testBus.Subscribe((string s) =>
             {
@@ -158,25 +170,28 @@ namespace PushoverQ.Tests
                 return null;
             });
 
-            await TimedPublishManyString(MessageCountToPublish);
+            var elapsed = await TimedPublishManyString(MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
 
             SpinWait.SpinUntil(() => resultList.Count == MessageCountToPublish);
 
             Assert.IsTrue(resultList.Count == MessageCountToPublish);
             for (int i = 0; i < MessageCountToPublish; i++)
                 Assert.Contains(i.ToString(CultureInfo.InvariantCulture), resultList);
+            Assert.IsTrue(publishAverage < 500);
         }
 
         /// <summary>
-        /// Publish 5000 messages and ensure that the messages are received back.
+        /// Publish 500 messages and ensure that the messages are received back.
         /// </summary>
         /// <returns>
         /// The <see cref="Task"/>.
         /// </returns>
         [Test]
-        public async Task Publish5000OneKBMessages()
+        public async Task Publish500OneKBMessages()
         {
-            const int MessageCountToPublish = 5000;
+            const int MessageCountToPublish = 500;
             const int MessageSizeToPublish = 1024;
             var resultList = new List<byte[]>();
             await _testBus.Subscribe((byte[] s) =>
@@ -185,12 +200,15 @@ namespace PushoverQ.Tests
                 return null;
             });
 
-            await TimedPublishByte(MessageSizeToPublish, MessageCountToPublish);
+            var elapsed = await TimedPublishByte(MessageSizeToPublish, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
 
             SpinWait.SpinUntil(() => resultList.Count == MessageCountToPublish);
 
             Assert.IsTrue(resultList.Count == MessageCountToPublish);
             Assert.IsTrue(resultList.TrueForAll(x => x.Length == MessageSizeToPublish));
+            Assert.IsTrue(publishAverage < 500);
         }
 
         /// <summary>
@@ -210,28 +228,28 @@ namespace PushoverQ.Tests
             _testBus.Dispose();
         }
 
-        private async Task TimedPublishByte(int size)
+        private async Task<TimeSpan> TimedPublishByte(int size)
         {
-            await TimedPublishByte(size, 1);
+            return await TimedPublishByte(size, 1);
         }
 
-        private async Task TimedPublishByte(int size, int count)
+        private async Task<TimeSpan> TimedPublishByte(int size, int count)
         {
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < count; i++)
                 await _testBus.Send(new byte[size]);
             sw.Stop();
-            Console.WriteLine("Message Publish took {0}", sw.Elapsed);
+            return sw.Elapsed;
         }
 
-        private async Task TimedPublishManyString(int count)
+        private async Task<TimeSpan> TimedPublishManyString(int count)
         {
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < count; i++)
                 await _testBus.Send(i.ToString(CultureInfo.InvariantCulture));
 
             sw.Stop();
-            Console.WriteLine("Message Publish took {0}", sw.Elapsed);
+            return sw.Elapsed;
         }
     }
 }

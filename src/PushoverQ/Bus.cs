@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -54,6 +55,7 @@ namespace PushoverQ
         /// <inheritdoc/>
         public async Task Send(object message, string destination, bool confirmation, TimeSpan? expiration, DateTime? visibleAfter, CancellationToken token)
         {
+            var totalSw = Stopwatch.StartNew();
             if (message == null) throw new ArgumentNullException("message");
 
             var type = message.GetType();
@@ -71,7 +73,10 @@ namespace PushoverQ
 
             try
             {
+                var sw = Stopwatch.StartNew();
                 var sender = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageSenderAsync(destination).WithCancellation(token), token);
+                sw.Stop();
+                // Console.Write(sw.Elapsed.TotalMilliseconds + Environment.NewLine);
 
                 await RetryPolicy.ExecuteAsync(async () =>
                 {
@@ -100,6 +105,9 @@ namespace PushoverQ
             {
                 _publishSemaphore.Release();
             }
+
+            totalSw.Stop();
+            Console.Write(totalSw.Elapsed.TotalMilliseconds + Environment.NewLine);
         }
 
         /// <inheritdoc/>
