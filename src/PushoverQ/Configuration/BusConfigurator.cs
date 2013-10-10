@@ -35,6 +35,11 @@ namespace PushoverQ.Configuration
             Settings.Serializer = new T();
         }
 
+        public void WithTopicResolver(Func<Type, string> resolver)
+        {
+            Settings.TopicNameResolver = resolver;
+        }
+
         public void WithNumberOfReceiversPerSubscription(uint count)
         {
             Settings.NumberOfReceiversPerSubscription = count;

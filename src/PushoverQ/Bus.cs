@@ -26,19 +26,18 @@ namespace PushoverQ
         private readonly NamespaceManager _nm;
         private readonly MessagingFactory _mf;
         private readonly SemaphoreSlim _publishSemaphore;
-        private static readonly RetryPolicy RetryPolicy = new RetryPolicy<TransientErrorDetectionStrategy>(
-            new ExponentialBackoff("Retry exponentially", int.MaxValue, TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(30), true));
+        private static readonly RetryPolicy RetryPolicy
+            = new RetryPolicy<TransientErrorDetectionStrategy>(new ExponentialBackoff("Retry exponentially", int.MaxValue, TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(30), true));
 
         private static readonly ILog Logger = LogManager.GetCurrentClassLogger();
 
-        public static async Task<IBus> CreateBus(Action<BusConfigurator> configure)
+        public static Task<IBus> CreateBus(Action<BusConfigurator> configure)
         {
             var configurator = new BusConfigurator();
             configure(configurator);
 
             var bus = new Bus(configurator.Settings);
-            await bus.Start();
-            return bus;
+            return Task.FromResult<IBus>(bus);
         }
 
         private Bus(BusSettings settings)
@@ -48,10 +47,6 @@ namespace PushoverQ
             _mf = MessagingFactory.CreateFromConnectionString(settings.ConnectionString);
             _nm = NamespaceManager.CreateFromConnectionString(settings.ConnectionString);
             _publishSemaphore = new SemaphoreSlim(settings.MaxMessagesInFlight);
-        }
-
-        private async Task Start()
-        {
         }
 
         #region Publish
@@ -66,7 +61,7 @@ namespace PushoverQ
             
             var messageId = Guid.NewGuid();
 
-            Logger.DebugFormat("BEGIN: Waiting to send message of type `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
+            Logger.DebugFormat("BEGIN: Waiting to send message of messageType `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
 
             await _publishSemaphore.WaitAsync(token);
 
@@ -117,7 +112,7 @@ namespace PushoverQ
 
             var messageId = Guid.NewGuid();
 
-            Logger.DebugFormat("BEGIN: Waiting to send message of type `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
+            Logger.DebugFormat("BEGIN: Waiting to send message of messageType `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
 
             await _publishSemaphore.WaitAsync(token);
 
@@ -132,8 +127,8 @@ namespace PushoverQ
                     using (var ms = new MemoryStream())
                     {
                         _settings.Serializer.Serialize(message, ms);
-
                         ms.Seek(0, SeekOrigin.Begin);
+
                         var brokeredMessage = new BrokeredMessage(ms, false);
                         brokeredMessage.MessageId = messageId.ToString("n");
                         if (visibleAfter != null)
@@ -170,6 +165,12 @@ namespace PushoverQ
             {
                 _publishSemaphore.Release();
             }
+        }
+
+        /// <inheritdoc/>
+        public T GetProxy<T>()
+        {
+            return new RPC.Proxy<T>(this).GetTransparentProxy();
         }
 
         #endregion
@@ -246,7 +247,7 @@ namespace PushoverQ
             if (message == null) return null;
             if (envelope == null) throw new ArgumentNullException("envelope");
 
-            Logger.DebugFormat("BEGIN: Handling message with id `{0:n}' and type `{1}'", envelope.MessageId, message.GetType().FullName);
+            Logger.DebugFormat("BEGIN: Handling message with id `{0:n}' and messageType `{1}'", envelope.MessageId, message.GetType().FullName);
 
             try
             {
@@ -346,18 +347,26 @@ namespace PushoverQ
             return topic + "/subscriptions/" + subscription;
         }
 
+        /// <inheritdoc/>
+        public Task<ISubscription> Subscribe(Type messageType, string subscription, Func<object, Envelope, Task> handler)
+        {
+            return Subscribe(GetTopicName(messageType), subscription, handler);
+        }
+
+        /// <inheritdoc/>
         public async Task<ISubscription> Subscribe(string topic, string subscription, Func<object, Envelope, Task> handler)
         {
             Logger.InfoFormat("Subscribing to topic: `{0}' subscription: `{1}'", topic, subscription);
 
             await CreateTopic(topic);
-
             await CreateSubscription(topic, subscription);
+            
             var path = GetPath(topic, subscription);
 
             return await Subscribe(path, handler);
         }
 
+        /// <inheritdoc/>
         public async Task<ISubscription> Subscribe(string path, Func<object, Envelope, Task> handler)
         {
             Logger.InfoFormat("Subscribing to path: `{0}'", path);
@@ -381,50 +390,64 @@ namespace PushoverQ
                     });
         }
 
-        private string GetTopicName(Type type)
+        private string GetTopicName(Type messageType)
         {
-            return type.FullName;
+            return _settings.TopicNameResolver(messageType);
         }
 
-        public async Task<ISubscription> Subscribe(Type type, Func<object, Envelope, Task> handler)
+        private string GetSubscriptionName(Type consumerType)
+        {
+            return _settings.ApplicationName;
+        }
+
+        /// <inheritdoc/>
+        public async Task<ISubscription> Subscribe(Type messageType, Func<object, Envelope, Task> handler)
         {
             var tasks = new[]
                 {
-                    Subscribe(GetTopicName(type), _settings.EndpointName, handler),
+                    Subscribe(GetTopicName(messageType), _settings.EndpointName, handler),
                 };
 
             var subscriptions = await Task.WhenAll(tasks);
             return new CompositeSubscription(subscriptions);
         }
 
+        /// <inheritdoc/>
         public Task<ISubscription> Subscribe<T>(Func<T, Envelope, Task> handler) where T : class
         {
             return Subscribe(typeof(T), (m, e) => m is T ? handler((T)m, e) : null);
         }
 
-        #endregion
-
-        public T GetProxy<T>()
+        /// <inheritdoc/>
+        public Task<ISubscription> Subscribe<T>(string subscription, Func<T, Envelope, Task> handler) where T : class
         {
-            return new RPC.Proxy<T>(this).GetTransparentProxy();
+            return Subscribe<T>(GetTopicName(typeof(T)), subscription, handler);
         }
 
+        /// <inheritdoc/>
+        public Task<ISubscription> Subscribe<T>(string topic, string subscription, Func<T, Envelope, Task> handler) where T : class
+        {
+            // todo: replace null
+            return Subscribe<T>(GetSubscriptionName(null), handler);
+        }
+
+        /// <inheritdoc/>
         public async Task<ISubscription> Subscribe<T>(Func<T> resolver)
         {
             var type = typeof(T);
             Func<object, Envelope, Task> handler = async (m, e) =>
-                {
-                    var impl = resolver();
-                    var msg = m as MethodCallCommand;
-                    if (msg == null) return;
+            {
+                var impl = resolver();
+                var msg = m as MethodCallCommand;
+                if (msg == null) return;
 
-                    var mi = type.GetMethod(msg.MethodName, msg.ArgumentTypes.Select(Type.GetType).ToArray());
-                    var returnValue = mi.Invoke(impl, msg.Arguments);
+                var mi = type.GetMethod(msg.MethodName, msg.ArgumentTypes.Select(Type.GetType).ToArray());
+                var returnValue = mi.Invoke(impl, msg.Arguments);
 
-                    if (returnValue is Task) await (Task)returnValue;
+                if (returnValue is Task) await (Task)returnValue;
 
-                    // todo: reply here if needed
-                };
+                // todo: reply here if needed
+            };
 
             var types = type.GetInterfaces();
             var subscriptionTasks = types.SelectMany(x => new[]
@@ -434,6 +457,8 @@ namespace PushoverQ
 
             return new CompositeSubscription(await Task.WhenAll(subscriptionTasks));
         }
+
+        #endregion
 
         #region Disposal
 
