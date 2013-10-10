@@ -19,28 +19,17 @@ namespace PushoverQ.Tests
         [Test]
         public async Task BringUpBus()
         {
-            string ServerFQDN = Environment.MachineName;
-            int HttpPort = 9355;
-            int TcpPort = 9354;
-            string ServiceNamespace = "ServiceBusDefaultNamespace";
+            var serverFQDN = Environment.MachineName;
+            const int HttpPort = 9355;
+            const int TcpPort = 9354;
+            const string ServiceNamespace = "ServiceBusDefaultNamespace";
 
-            Common.Logging.LogManager.Adapter = new Common.Logging.NLog.NLogLoggerFactoryAdapter(new NameValueCollection
-                                                                                                     {
-                                                                                                         {"configType", "FILE"},
-                                                                                                         {"configFile", "~/NLog.config"}
-                                                                                                     });
+            var connBuilder = new ServiceBusConnectionStringBuilder { ManagementPort = HttpPort, RuntimePort = TcpPort };
+            connBuilder.Endpoints.Add(new UriBuilder { Scheme = "sb", Host = serverFQDN, Path = ServiceNamespace }.Uri);
+            connBuilder.StsEndpoints.Add(new UriBuilder { Scheme = "https", Host = serverFQDN, Port = HttpPort, Path = ServiceNamespace }.Uri);
+            var bus = Bus.CreateBus(cfg => cfg.WithConnectionString(connBuilder.ToString())).Result;
 
-            ServiceBusConnectionStringBuilder connBuilder = new ServiceBusConnectionStringBuilder();
-            connBuilder.ManagementPort = HttpPort;
-            connBuilder.RuntimePort = TcpPort;
-            connBuilder.Endpoints.Add(new UriBuilder() { Scheme = "sb", Host = ServerFQDN, Path = ServiceNamespace }.Uri);
-            connBuilder.StsEndpoints.Add(new UriBuilder() { Scheme = "https", Host = ServerFQDN, Port = HttpPort, Path = ServiceNamespace }.Uri);
-            IBus bus = Bus.CreateBus(cfg =>
-                                         {
-                                             cfg.WithConnectionString(connBuilder.ToString());
-                                         }).Result;
-
-            ManualResetEventSlim evt = new ManualResetEventSlim();
+            var evt = new ManualResetEventSlim();
             await bus.Subscribe<string>(async m => evt.Set());
             await bus.Publish("testing");
             evt.Wait();
