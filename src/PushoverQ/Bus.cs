@@ -74,7 +74,7 @@ namespace PushoverQ
             try
             {
                 var sw = Stopwatch.StartNew();
-                var sender = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageSenderAsync(destination).WithCancellation(token), token);
+                var sender = _mf.CreateTopicClient(destination);
                 sw.Stop();
                 // Console.Write(sw.Elapsed.TotalMilliseconds + Environment.NewLine);
 
