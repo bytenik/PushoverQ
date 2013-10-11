@@ -405,7 +405,7 @@ namespace PushoverQ
 
         private string GetSubscriptionName(Type consumerType)
         {
-            return _settings.ApplicationName;
+            return _settings.ApplicationName.Right(50);
         }
 
         /// <inheritdoc/>

@@ -49,7 +49,7 @@ namespace PushoverQ.Configuration
             ApplicationName = "app";
             MaxMessagesInFlight = 10;
             NumberOfReceiversPerSubscription = 5;
-            TopicNameResolver = t => t.FullName.Replace("[]", "_Array");
+            TopicNameResolver = t => t.FullName.Replace("[]", "_Array").Right(50);
             Serializer = new BinaryFormatterSerializer();
         }
     }

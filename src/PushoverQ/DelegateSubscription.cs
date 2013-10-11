@@ -17,7 +17,6 @@ namespace PushoverQ
 
         public void Dispose()
         {
-            
         }
 
         public Task Unsubscribe()

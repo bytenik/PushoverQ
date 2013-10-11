@@ -76,5 +76,4 @@ namespace PushoverQ.RPC
             return (T)base.GetTransparentProxy();
         }
     }
-
 }
