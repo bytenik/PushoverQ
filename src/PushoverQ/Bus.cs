@@ -68,7 +68,6 @@ namespace PushoverQ
         /// <inheritdoc/>
         public async Task Send(object message, string destination, bool confirmation, TimeSpan? expiration, DateTime? visibleAfter, CancellationToken token)
         {
-            var totalSw = Stopwatch.StartNew();
             if (message == null) throw new ArgumentNullException("message");
 
             var type = message.GetType();
@@ -86,10 +85,7 @@ namespace PushoverQ
 
             try
             {
-                var sw = Stopwatch.StartNew();
                 var sender = _mf.CreateTopicClient(destination);
-                sw.Stop();
-                // Console.Write(sw.Elapsed.TotalMilliseconds + Environment.NewLine);
 
                 await RetryPolicy.ExecuteAsync(async () =>
                 {
@@ -118,9 +114,6 @@ namespace PushoverQ
             {
                 _publishSemaphore.Release();
             }
-
-            totalSw.Stop();
-            Console.Write(totalSw.Elapsed.TotalMilliseconds + Environment.NewLine);
         }
 
         /// <inheritdoc/>
