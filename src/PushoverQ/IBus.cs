@@ -62,5 +62,7 @@ namespace PushoverQ
         T GetProxy<T>();
 
         Task<ISubscription> Subscribe<T>(Func<T> resolver);
+
+        ILog Logger { get; }
     }
 }

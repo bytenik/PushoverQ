@@ -58,7 +58,7 @@ namespace PushoverQ.Autofac
                         });
                 });
 
-            return new CompositeSubscription(await Task.WhenAll(subscribeTasks));
+            return new CompositeSubscription(bus.Logger, await Task.WhenAll(subscribeTasks));
         }
     }
 }

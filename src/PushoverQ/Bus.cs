@@ -11,16 +11,21 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Common.Logging;
+
 using Microsoft.Practices.TransientFaultHandling;
 using Microsoft.ServiceBus;
 using Microsoft.ServiceBus.Messaging;
+
 using PushoverQ.Configuration;
 using PushoverQ.RPC;
+
 using RetryPolicy = Microsoft.Practices.TransientFaultHandling.RetryPolicy;
 
 namespace PushoverQ
 {
+    /// <summary>
+    /// The PushoverQ bus.
+    /// </summary>
     public sealed class Bus : IBus, IDisposable
     {
         private readonly BusSettings _settings;
@@ -30,8 +35,16 @@ namespace PushoverQ
         private static readonly RetryPolicy RetryPolicy
             = new RetryPolicy<TransientErrorDetectionStrategy>(new ExponentialBackoff("Retry exponentially", int.MaxValue, TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(30), true));
 
-        private static readonly ILog Logger = LogManager.GetCurrentClassLogger();
+        /// <summary>
+        /// Gets the logger.
+        /// </summary>
+        public ILog Logger { get { return _settings.Logger; } }
 
+        /// <summary>
+        /// Creates an active service bus instance.
+        /// </summary>
+        /// <param name="configure"> The configuration delegate used to configure the bus. </param>
+        /// <returns> The new bus instance. </returns>
         public static Task<IBus> CreateBus(Action<BusConfigurator> configure)
         {
             var configurator = new BusConfigurator();
@@ -63,11 +76,11 @@ namespace PushoverQ
             
             var messageId = Guid.NewGuid();
 
-            Logger.DebugFormat("BEGIN: Waiting to send message of messageType `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
+            Logger.Debug("BEGIN: Waiting to send message of messageType `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
 
             await _publishSemaphore.WaitAsync(token);
 
-            Logger.TraceFormat("GO: Sending message with id `{0:n}` to the bus", messageId);
+            Logger.Trace("GO: Sending message with id `{0:n}` to the bus", messageId);
 
             if (confirmation) throw new NotImplementedException();
 
@@ -99,7 +112,7 @@ namespace PushoverQ
 
                 await RetryPolicy.ExecuteAsync(() => sender.CloseAsync(), token);
 
-                Logger.DebugFormat("END: Sent message with id `{0:n}' to the bus", messageId);
+                Logger.Debug("END: Sent message with id `{0:n}' to the bus", messageId);
             }
             finally
             {
@@ -120,11 +133,11 @@ namespace PushoverQ
 
             var messageId = Guid.NewGuid();
 
-            Logger.DebugFormat("BEGIN: Waiting to send message of messageType `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
+            Logger.Debug("BEGIN: Waiting to send message of messageType `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
 
             await _publishSemaphore.WaitAsync(token);
 
-            Logger.TraceFormat("GO: Sending message with id `{0:n}` to the bus", messageId);
+            Logger.Trace("GO: Sending message with id `{0:n}` to the bus", messageId);
 
             try
             {
@@ -166,7 +179,7 @@ namespace PushoverQ
 
                 await RetryPolicy.ExecuteAsync(() => sender.CloseAsync(), token);
 
-                Logger.DebugFormat("END: Sent message with id `{0:n}' to the bus; got reply", messageId);
+                Logger.Debug("END: Sent message with id `{0:n}' to the bus; got reply", messageId);
                 return reply;
             }
             finally
@@ -187,7 +200,7 @@ namespace PushoverQ
 
         private async Task CreateQueue(string name)
         {
-            Logger.TraceFormat("Creating queue {0}", name);
+            Logger.Trace("Creating queue {0}", name);
 
             try
             {
@@ -204,13 +217,13 @@ namespace PushoverQ
             }
             catch (MessagingEntityAlreadyExistsException)
             {
-                Logger.TraceFormat("Topic {0} already exists", name);
+                Logger.Trace("Topic {0} already exists", name);
             }
         }
 
         private async Task CreateTopic(string name)
         {
-            Logger.TraceFormat("Creating topic {0}", name);
+            Logger.Trace("Creating topic {0}", name);
 
             try
             {
@@ -226,13 +239,13 @@ namespace PushoverQ
             }
             catch (MessagingEntityAlreadyExistsException)
             {
-                Logger.TraceFormat("Topic {0} already exists", name);
+                Logger.Trace("Topic {0} already exists", name);
             }
         }
 
         private async Task CreateSubscription(string topic, string subscription)
         {
-            Logger.TraceFormat("Creating subscription {0} for topic {1}", subscription, topic);
+            Logger.Trace("Creating subscription {0} for topic {1}", subscription, topic);
 
             try
             {
@@ -246,7 +259,7 @@ namespace PushoverQ
             }
             catch (MessagingEntityAlreadyExistsException)
             {
-                Logger.TraceFormat("Subscription {0} for topic {1} already exists", subscription, topic);
+                Logger.Trace("Subscription {0} for topic {1} already exists", subscription, topic);
             }
         }
 
@@ -255,7 +268,7 @@ namespace PushoverQ
             if (message == null) return null;
             if (envelope == null) throw new ArgumentNullException("envelope");
 
-            Logger.DebugFormat("BEGIN: Handling message with id `{0:n}' and messageType `{1}'", envelope.MessageId, message.GetType().FullName);
+            Logger.Debug("BEGIN: Handling message with id `{0:n}' and messageType `{1}'", envelope.MessageId, message.GetType().FullName);
 
             try
             {
@@ -275,16 +288,16 @@ namespace PushoverQ
             catch (AggregateException ae)
             {
                 foreach (var ex in ae.InnerExceptions)
-                    Logger.WarnFormat("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
+                    Logger.Warn("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
                 return ae;
             }
             catch (Exception ex)
             {
-                Logger.WarnFormat("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
+                Logger.Warn("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
                 return ex;
             }
 
-            Logger.DebugFormat("END: Handled message with id `{0:n}'", envelope.MessageId);
+            Logger.Debug("END: Handled message with id `{0:n}'", envelope.MessageId);
 
             return null;
         }
@@ -322,14 +335,20 @@ namespace PushoverQ
                         object message;
                         using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
 
-                        var envelope = new Envelope {MessageId = Guid.Parse(brokeredMessage.MessageId), SequenceNumber = brokeredMessage.SequenceNumber};
+                        var envelope = new Envelope
+                        {
+                            MessageId = Guid.Parse(brokeredMessage.MessageId),
+                            SequenceNumber = brokeredMessage.SequenceNumber
+                        };
 
                         var ex = await HandleMessage(message, envelope, _pathToHandlers[path]);
 
                         try
                         {
-                            if (ex == null) await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), cts.Token);
-                            else await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), cts.Token);
+                            if (ex == null)
+                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), cts.Token);
+                            else
+                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), cts.Token);
                         }
                         catch (MessageLockLostException)
                         {
@@ -364,7 +383,7 @@ namespace PushoverQ
         /// <inheritdoc/>
         public async Task<ISubscription> Subscribe(string topic, string subscription, Func<object, Envelope, Task> handler)
         {
-            Logger.InfoFormat("Subscribing to topic: `{0}' subscription: `{1}'", topic, subscription);
+            Logger.Info("Subscribing to topic: `{0}' subscription: `{1}'", topic, subscription);
 
             await CreateTopic(topic);
             await CreateSubscription(topic, subscription);
@@ -377,7 +396,7 @@ namespace PushoverQ
         /// <inheritdoc/>
         public async Task<ISubscription> Subscribe(string path, Func<object, Envelope, Task> handler)
         {
-            Logger.InfoFormat("Subscribing to path: `{0}'", path);
+            Logger.Info("Subscribing to path: `{0}'", path);
 
             for (var i = _pathToReceiverCancelSources.CountValues(path); i < _settings.NumberOfReceiversPerSubscription; i++)
                 await SpinUpReceiver(path);
@@ -417,7 +436,7 @@ namespace PushoverQ
                 };
 
             var subscriptions = await Task.WhenAll(tasks);
-            return new CompositeSubscription(subscriptions);
+            return new CompositeSubscription(_settings.Logger, subscriptions);
         }
 
         /// <inheritdoc/>
@@ -463,7 +482,7 @@ namespace PushoverQ
                     Subscribe(GetTopicName(type), _settings.ApplicationName, handler),
                 });
 
-            return new CompositeSubscription(await Task.WhenAll(subscriptionTasks));
+            return new CompositeSubscription(_settings.Logger, await Task.WhenAll(subscriptionTasks));
         }
 
         #endregion
