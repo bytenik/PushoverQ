@@ -309,43 +309,55 @@ namespace PushoverQ
                 {
                     while (!cts.Token.IsCancellationRequested)
                     {
-                        var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), cts.Token);
-                        if (brokeredMessage == null) continue; // no message here
-
-                        if (brokeredMessage.ContentType == null)
-                        {
-                            await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), cts.Token);
-                            continue;
-                        }
-
-                        var type = Type.GetType(brokeredMessage.ContentType, false);
-                        if (type == null)
-                        {
-                            await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), cts.Token);
-                            continue;
-                        }
-
-                        object message;
-                        using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
-
-                        var envelope = new Envelope
-                        {
-                            MessageId = Guid.Parse(brokeredMessage.MessageId),
-                            SequenceNumber = brokeredMessage.SequenceNumber
-                        };
-
-                        var ex = await HandleMessage(message, envelope, _pathToHandlers[path]);
-
                         try
                         {
-                            if (ex == null)
-                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), cts.Token);
-                            else
-                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), cts.Token);
+                            var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), cts.Token);
+                            if (brokeredMessage == null) continue; // no message here
+
+                            if (brokeredMessage.ContentType == null)
+                            {
+                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), cts.Token);
+                                continue;
+                            }
+
+                            var type = Type.GetType(brokeredMessage.ContentType, false);
+                            if (type == null)
+                            {
+                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), cts.Token);
+                                continue;
+                            }
+
+                            object message;
+                            using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
+
+                            var envelope = new Envelope
+                            {
+                                MessageId = Guid.Parse(brokeredMessage.MessageId),
+                                SequenceNumber = brokeredMessage.SequenceNumber
+                            };
+
+                            var ex = await HandleMessage(message, envelope, _pathToHandlers[path]);
+
+                            try
+                            {
+                                if (ex == null)
+                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), cts.Token);
+                                else
+                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), cts.Token);
+                            }
+                            catch (MessageLockLostException)
+                            {
+                                // oh well...
+                            }
                         }
-                        catch (MessageLockLostException)
+                        catch (OperationCanceledException e)
                         {
-                            // oh well...
+                            if (e.CancellationToken != cts.Token)
+                                Logger.Fatal(e, "Receiver shut down due to unhandled exception in the message pump. This indicates a bug in PushoverQ.");                                
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Fatal(e, "Receiver shut down due to unhandled exception in the message pump. This indicates a bug in PushoverQ.");
                         }
                     }
 
