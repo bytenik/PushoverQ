@@ -1,0 +1,240 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
+using Microsoft.ServiceBus;
+
+using NUnit.Framework;
+
+namespace PushoverQ.Tests
+{
+    /// <summary>
+    /// The publish tests.
+    /// </summary>
+    [TestFixture]
+    public class PublishTests : IDisposable
+    {
+        /// <summary>
+        /// The test bus.
+        /// </summary>
+        IBus _testBus;
+
+        /// <summary>
+        /// Setup the bus for all the subsequent tests.
+        /// </summary>
+        [TestFixtureSetUp]
+        public void SetUp()
+        {
+            var serverFQDN = Environment.MachineName;
+            const int HttpPort = 9355;
+            const int TcpPort = 9354;
+            const string ServiceNamespace = "ServiceBusDefaultNamespace";
+
+            // Common.Logging.LogManager.Adapter = new Common.Logging.NLog.NLogLoggerFactoryAdapter(new NameValueCollection { { "configType", "FILE" }, { "configFile", "~/NLog.config" } });
+
+            var connBuilder = new ServiceBusConnectionStringBuilder { ManagementPort = HttpPort, RuntimePort = TcpPort };
+            connBuilder.Endpoints.Add(new UriBuilder { Scheme = "sb", Host = serverFQDN, Path = ServiceNamespace }.Uri);
+            connBuilder.StsEndpoints.Add(new UriBuilder { Scheme = "https", Host = serverFQDN, Port = HttpPort, Path = ServiceNamespace }.Uri);
+            _testBus = Bus.CreateBus(cfg => cfg.WithConnectionString(connBuilder.ToString())).Result;
+        }
+
+        /// <summary>
+        /// Publish a 1KB message and ensure that the message is received back.
+        /// </summary>
+        /// <returns>
+        /// The <see cref="Task"/>.
+        /// </returns>
+        [Test]
+        public async Task Publish1KBMessage()
+        {
+            const int MessageCountToPublish = 1;
+            const int MessageSize = 1 * 1024;
+            var consumer = _testBus.Consume<byte[]>();
+
+            var elapsed = await TimedPublishByte(MessageSize, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
+
+            var result = await consumer;
+            Assert.NotNull(result, "Result cannot be null.");
+            Assert.IsInstanceOf<byte[]>(result, "Result is not correct type.");
+            Assert.IsTrue(result.Length == MessageSize, "Result size is incorrect.");
+            Assert.IsTrue(publishAverage < 2000, "Publish took too long.");
+        }
+
+        /// <summary>
+        /// Publish a 10KB message and ensure that the message is received back.
+        /// </summary>
+        /// <returns>
+        /// The <see cref="Task"/>.
+        /// </returns>
+        [Test]
+        public async Task Publish10KBMessage()
+        {
+            const int MessageCountToPublish = 1;
+            const int MessageSize = 10 * 1024;
+            var consumer = _testBus.Consume<byte[]>();
+
+            var elapsed = await TimedPublishByte(MessageSize, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
+
+            var result = await consumer;
+            Assert.NotNull(result, "Result cannot be null.");
+            Assert.IsInstanceOf<byte[]>(result, "Result is not correct type.");
+            Assert.IsTrue(result.Length == MessageSize, "Result size is incorrect.");
+            Assert.IsTrue(publishAverage < 2000, "Publish took too long.");
+        }
+
+        /// <summary>
+        /// Publish a 1MB message and ensure that the message is received back.
+        /// </summary>
+        /// <returns>
+        /// The <see cref="Task"/>.
+        /// </returns>
+        [Test]
+        public async Task Publish1MBMessage()
+        {
+            const int MessageCountToPublish = 1;
+            const int MessageSize = 1 * 1024 * 1024;
+            var consumer = _testBus.Consume<byte[]>();
+
+            var elapsed = await TimedPublishByte(MessageSize, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
+
+            var result = await consumer;
+            Assert.NotNull(result, "Result cannot be null.");
+            Assert.IsInstanceOf<byte[]>(result, "Result is not correct type.");
+            Assert.IsTrue(result.Length == MessageSize, "Result size is incorrect.");
+            Assert.IsTrue(publishAverage < 2000, "Publish took too long.");
+        }
+
+        /// <summary>
+        /// Publish a 10MB message and ensure that the message is received back.
+        /// </summary>
+        /// <returns>
+        /// The <see cref="Task"/>.
+        /// </returns>
+        [Test]
+        public async Task Publish10MBMessage()
+        {
+            const int MessageCountToPublish = 1;
+            const int MessageSize = 10 * 1024 * 1024;
+            var consumer = _testBus.Consume<byte[]>();
+
+            var elapsed = await TimedPublishByte(MessageSize, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
+
+            var result = await consumer;
+            Assert.NotNull(result, "Result cannot be null.");
+            Assert.IsInstanceOf<byte[]>(result, "Result is not correct type.");
+            Assert.IsTrue(result.Length == MessageSize, "Result size is incorrect.");
+            Assert.IsTrue(publishAverage < 2000, "Publish took too long.");
+        }
+
+        /// <summary>
+        /// Publish 500 messages and ensure that the messages are received back.
+        /// </summary>
+        /// <returns>
+        /// The <see cref="Task"/>.
+        /// </returns>
+        [Test]
+        public async Task Publish500StringMessages()
+        {
+            const int MessageCountToPublish = 500;
+            var resultList = new List<string>();
+            await _testBus.Subscribe((string s) =>
+            {
+                resultList.Add(s);
+                return null;
+            });
+
+            var elapsed = await TimedPublishManyString(MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
+
+            SpinWait.SpinUntil(() => resultList.Count == MessageCountToPublish);
+
+            Assert.IsTrue(resultList.Count == MessageCountToPublish);
+            for (int i = 0; i < MessageCountToPublish; i++)
+                Assert.Contains(i.ToString(CultureInfo.InvariantCulture), resultList, "Result does not contain expected result {0}", i.ToString(CultureInfo.InvariantCulture));
+            Assert.IsTrue(publishAverage < 50, "Publish took too long.");
+        }
+
+        /// <summary>
+        /// Publish 500 messages and ensure that the messages are received back.
+        /// </summary>
+        /// <returns>
+        /// The <see cref="Task"/>.
+        /// </returns>
+        [Test]
+        public async Task Publish500OneKBMessages()
+        {
+            const int MessageCountToPublish = 500;
+            const int MessageSizeToPublish = 1024;
+            var resultList = new List<byte[]>();
+            await _testBus.Subscribe((byte[] s) =>
+            {
+                resultList.Add(s);
+                return null;
+            });
+
+            var elapsed = await TimedPublishByte(MessageSizeToPublish, MessageCountToPublish);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
+
+            SpinWait.SpinUntil(() => resultList.Count == MessageCountToPublish);
+
+            Assert.IsTrue(resultList.Count == MessageCountToPublish, "Result size is incorrect.");
+            Assert.IsTrue(resultList.TrueForAll(x => x.Length == MessageSizeToPublish), "Response does not contain expected result.");
+            Assert.IsTrue(publishAverage < 50, "Publish took too long.");
+        }
+
+        /// <summary>
+        /// The tear down.
+        /// </summary>
+        [TestFixtureTearDown]
+        public void TearDown()
+        {
+            _testBus.Dispose();
+        }
+
+        /// <summary>
+        /// The dispose.
+        /// </summary>
+        public void Dispose()
+        {
+            _testBus.Dispose();
+        }
+
+        ~PublishTests()
+        {
+            _testBus.Dispose();
+        }
+
+        private async Task<TimeSpan> TimedPublishByte(int size, int count)
+        {
+            var sw = Stopwatch.StartNew();
+            for (int i = 0; i < count; i++)
+                await _testBus.Send(new byte[size]);
+            sw.Stop();
+            return sw.Elapsed;
+        }
+
+        private async Task<TimeSpan> TimedPublishManyString(int count)
+        {
+            var sw = Stopwatch.StartNew();
+            for (int i = 0; i < count; i++)
+                await _testBus.Send(i.ToString(CultureInfo.InvariantCulture));
+
+            sw.Stop();
+            return sw.Elapsed;
+        }
+    }
+}
