@@ -2,15 +2,10 @@
   <GlobalSettings>
     <CollectionProperty Name="RecognizedWords">
       <Value>api</Value>
-      <Value>crackstation</Value>
       <Value>db</Value>
-      <Value>downvote</Value>
-      <Value>downvoters</Value>
-      <Value>embedly</Value>
       <Value>enum</Value>
       <Value>func</Value>
       <Value>Func</Value>
-      <Value>FunnelFire</Value>
       <Value>fwlink</Value>
       <Value>htm</Value>
       <Value>html</Value>
@@ -19,8 +14,7 @@
       <Value>regexing</Value>
       <Value>str</Value>
       <Value>uints</Value>
-      <Value>upvote</Value>
-      <Value>upvoters</Value>
+      <Value>uncancelable</Value>
       <Value>urls</Value>
     </CollectionProperty>
   </GlobalSettings>

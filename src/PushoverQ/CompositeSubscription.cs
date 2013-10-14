@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Common.Logging;
 
 namespace PushoverQ
 {
@@ -12,36 +11,28 @@ namespace PushoverQ
     /// </summary>
     public class CompositeSubscription : ISubscription
     {
+        readonly ILog _logger;
         private readonly ISubscription[] _subscriptions;
         private bool _disposed;
 
-        private static readonly ILog Log = LogManager.GetCurrentClassLogger();
-
         /// <summary>
         /// Initializes a new instance of the <see cref="CompositeSubscription"/> class.
         /// </summary>
+        /// <param name="logger"> The logger. </param>
         /// <param name="subscriptions"> The subscriptions. </param>
         /// <exception cref="ArgumentNullException"> Thrown when subscriptions is null.</exception>
         /// <exception cref="NullReferenceException"> Thrown when a particular subscription is null. </exception>
-        public CompositeSubscription(params ISubscription[] subscriptions)
+        public CompositeSubscription(ILog logger, params ISubscription[] subscriptions)
         {
             if (subscriptions == null) throw new ArgumentNullException("subscriptions");
+            if (logger == null) throw new ArgumentNullException("bus");
             if (subscriptions.Any(x => x == null)) throw new NullReferenceException("A subscription is null.");
 
+            _logger = logger;
             _subscriptions = subscriptions;
         }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CompositeSubscription"/> class.
-        /// </summary>
-        /// <param name="subscriptions"> The subscriptions. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when subscriptions is null.</exception>
-        /// <exception cref="NullReferenceException"> Thrown when a particular subscription is null. </exception>
-        public CompositeSubscription(IEnumerable<ISubscription> subscriptions)
-            : this(subscriptions == null ? null : subscriptions as ISubscription[] ?? subscriptions.ToArray())
-        {
-        }
-
+        /// <inheritdoc/>
         public void Dispose()
         {
             if (_disposed) throw new ObjectDisposedException(typeof(CompositeSubscription).Name);
@@ -50,6 +41,7 @@ namespace PushoverQ
             foreach (var subscription in _subscriptions) subscription.Dispose();
         }
 
+        /// <inheritdoc/>
         public Task Unsubscribe()
         {
             if (_disposed) return Task.FromResult<object>(null);
@@ -60,7 +52,7 @@ namespace PushoverQ
 
         ~CompositeSubscription()
         {
-            if (!_disposed) Log.Info("Finalizer reached a subscription that was not unsubscribed or disposed.");
+            if (!_disposed) _logger.Info("Finalizer reached a subscription that was not unsubscribed or disposed.");
         }
     }
 }

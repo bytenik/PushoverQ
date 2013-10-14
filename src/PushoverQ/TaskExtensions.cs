@@ -80,10 +80,10 @@ namespace PushoverQ
         }
 
         /// <summary>
-        /// A naive implementation of timeout and cancellation over an uncancellable <see cref="Task"/>.
+        /// A naive implementation of timeout and cancellation over an uncancelable <see cref="Task"/>.
         /// </summary>
         /// <typeparam name="T">The result type of the task</typeparam>
-        /// <param name="task">the uncancellable task</param>
+        /// <param name="task">the uncancelable task</param>
         /// <param name="token">token to monitor for cancellation</param>
         /// <returns></returns>
         public static async Task<T> WithCancellation<T>(this Task<T> task, CancellationToken token)
@@ -101,11 +101,10 @@ namespace PushoverQ
         }
 
         /// <summary>
-        /// A naive implementation of timeout and cancellation over an uncancellable <see cref="Task"/>.
+        /// A naive implementation of timeout and cancellation over an uncancelable <see cref="Task"/>.
         /// </summary>
-        /// <param name="task">the uncancellable task</param>
+        /// <param name="task">the uncancelable task</param>
         /// <param name="token">token to monitor for cancellation</param>
-        /// <returns></returns>
         public static async Task WithCancellation(this Task task, CancellationToken token)
         {
 #pragma warning disable 4014

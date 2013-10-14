@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace PushoverQ.Configuration
 {
+    /// <summary>
+    /// The bus settings.
+    /// </summary>
     class BusSettings
     {
         /// <summary>
@@ -43,6 +46,14 @@ namespace PushoverQ.Configuration
         /// </summary>
         public uint NumberOfReceiversPerSubscription { get; set; }
 
+        /// <summary>
+        /// Gets or sets the bus logger.
+        /// </summary>
+        public ILog Logger { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BusSettings"/> class.
+        /// </summary>
         public BusSettings()
         {
             EndpointName = Environment.MachineName;
@@ -51,6 +62,7 @@ namespace PushoverQ.Configuration
             NumberOfReceiversPerSubscription = 5;
             TopicNameResolver = t => t.FullName.Replace("[]", "_Array").Right(50);
             Serializer = new BinaryFormatterSerializer();
+            Logger = new BitBucketLogger();
         }
     }
 }

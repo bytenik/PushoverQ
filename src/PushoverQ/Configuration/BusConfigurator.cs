@@ -6,48 +6,70 @@ using System.Threading.Tasks;
 
 namespace PushoverQ.Configuration
 {
+    /// <summary>
+    /// The bus configurator.
+    /// </summary>
     public class BusConfigurator
     {
+        /// <summary>
+        /// Gets the settings.
+        /// </summary>
         internal BusSettings Settings { get; private set; }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BusConfigurator"/> class.
+        /// </summary>
         internal BusConfigurator()
         {
             Settings = new BusSettings();
         }
 
-        public void WithConnectionString(string connectionString)
+        public BusConfigurator WithConnectionString(string connectionString)
         {
             Settings.ConnectionString = connectionString.Replace("localhost", Environment.MachineName);
+            return this;
         }
 
-        public void WithEndpointName(string endpointName)
+        public BusConfigurator WithEndpointName(string endpointName)
         {
             Settings.EndpointName = endpointName;
+            return this;
         }
 
-        public void WithApplicationName(string applicationName)
+        public BusConfigurator WithApplicationName(string applicationName)
         {
             Settings.ApplicationName = applicationName;
+            return this;
         }
 
-        public void WithSerializer<T>() where T : ISerializer, new()
+        public BusConfigurator WithSerializer<T>() where T : ISerializer, new()
         {
             Settings.Serializer = new T();
+            return this;
         }
 
-        public void WithTopicResolver(Func<Type, string> resolver)
+        public BusConfigurator WithTopicResolver(Func<Type, string> resolver)
         {
             Settings.TopicNameResolver = resolver;
+            return this;
         }
 
-        public void WithNumberOfReceiversPerSubscription(uint count)
+        public BusConfigurator WithNumberOfReceiversPerSubscription(uint count)
         {
             Settings.NumberOfReceiversPerSubscription = count;
+            return this;
         }
 
-        public void WithSerializer(ISerializer serializer)
+        public BusConfigurator WithSerializer(ISerializer serializer)
         {
             Settings.Serializer = serializer;
+            return this;
+        }
+
+        public BusConfigurator WithLogger(ILog logger)
+        {
+            Settings.Logger = logger;
+            return this;
         }
     }
 }
