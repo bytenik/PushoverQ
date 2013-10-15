@@ -305,25 +305,27 @@ namespace PushoverQ
             var cts = new CancellationTokenSource();
             _pathToReceiverCancelSources.Add(path, cts);
 
+            var token = cts.Token;
+
             Task.Run(async () =>
                 {
-                    while (!cts.Token.IsCancellationRequested)
+                    while (!token.IsCancellationRequested)
                     {
                         try
                         {
-                            var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), cts.Token);
+                            var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), token);
                             if (brokeredMessage == null) continue; // no message here
 
                             if (brokeredMessage.ContentType == null)
                             {
-                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), cts.Token);
+                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
                                 continue;
                             }
 
                             var type = Type.GetType(brokeredMessage.ContentType, false);
                             if (type == null)
                             {
-                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), cts.Token);
+                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
                                 continue;
                             }
 
@@ -341,32 +343,47 @@ namespace PushoverQ
                             try
                             {
                                 if (ex == null)
-                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), cts.Token);
+                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), token);
                                 else
-                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), cts.Token);
+                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), token);
                             }
                             catch (MessageLockLostException)
                             {
                                 // oh well...
                             }
                         }
+                        catch (MessagingEntityNotFoundException)
+                        {
+                            Logger.Warn("Receiver for path {0} shut down because the messaging entity was deleted.", path);
+                        }
                         catch (OperationCanceledException e)
                         {
-                            if (e.CancellationToken != cts.Token)
-                                Logger.Fatal(e, "Receiver shut down due to unhandled exception in the message pump. This indicates a bug in PushoverQ.");                                
+                            if (e.CancellationToken != token)
+                                Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump. This indicates a bug in PushoverQ.", path);                                
                         }
                         catch (Exception e)
                         {
-                            Logger.Fatal(e, "Receiver shut down due to unhandled exception in the message pump. This indicates a bug in PushoverQ.");
+                            Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump. This indicates a bug in PushoverQ.", path);
                         }
                     }
 
                     await RetryPolicy.ExecuteAsync(() => receiver.CloseAsync());
-                    
+
+                    try
+                    {
+                        cts.Dispose();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // don't care
+                    }
+
                     _pathToReceiverCancelSources.Remove(path, cts);
 
-                    throw new OperationCanceledException(cts.Token);
-                }, cts.Token);
+                    Logger.Debug("Receiver for path {0} shut down gracefully.", path);
+
+                    throw new OperationCanceledException(token);
+                }, token);
 
             return receiver;
         }
@@ -418,7 +435,11 @@ namespace PushoverQ
                         // shut down all receivers
                         var cancellationSources = _pathToReceiverCancelSources[path].ToArray();
                         foreach (var cts in cancellationSources)
+                        {
                             cts.Cancel();
+                            cts.Dispose();
+                            _pathToReceiverCancelSources.Remove(path, cts);
+                        }
                     });
         }
 
@@ -433,15 +454,9 @@ namespace PushoverQ
         }
 
         /// <inheritdoc/>
-        public async Task<ISubscription> Subscribe(Type messageType, Func<object, Envelope, Task> handler)
+        public Task<ISubscription> Subscribe(Type messageType, Func<object, Envelope, Task> handler)
         {
-            var tasks = new[]
-                {
-                    Subscribe(GetTopicName(messageType), _settings.EndpointName, handler),
-                };
-
-            var subscriptions = await Task.WhenAll(tasks);
-            return new CompositeSubscription(_settings.Logger, subscriptions);
+            return Subscribe(GetTopicName(messageType), _settings.EndpointName, handler);
         }
 
         /// <inheritdoc/>
@@ -494,10 +509,26 @@ namespace PushoverQ
 
         #region Disposal
 
+        bool _disposed = false;
+
+        /// <summary>
+        /// Disposes of the bus.
+        /// </summary>
+        /// <param name="disposing"> true if disposing; false if finalizing. </param>
         public void Dispose(bool disposing)
         {
+            if (_disposed) throw new ObjectDisposedException(typeof(Bus).Name);
+
+            foreach (var cts in _pathToReceiverCancelSources.Values)
+            {
+                cts.Cancel();
+                cts.Dispose();
+            }
+
+            _disposed = true;
         }
 
+        /// <inheritdoc/>
         public void Dispose()
         {
             Dispose(true);

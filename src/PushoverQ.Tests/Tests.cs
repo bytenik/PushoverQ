@@ -19,7 +19,7 @@ namespace PushoverQ.Tests
     /// The bus connection tests.
     /// </summary>
     [TestFixture]
-    public class BusConnectionTests : IDisposable
+    public class BusConnectionTests
     {
         /// <summary>
         /// The test bus.
@@ -214,14 +214,6 @@ namespace PushoverQ.Tests
         /// </summary>
         [TestFixtureTearDown]
         public void TearDown()
-        {
-            _testBus.Dispose();
-        }
-
-        /// <summary>
-        /// The dispose.
-        /// </summary>
-        public void Dispose()
         {
             _testBus.Dispose();
         }
