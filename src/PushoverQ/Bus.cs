@@ -529,7 +529,7 @@ namespace PushoverQ
         /// <param name="disposing"> true if disposing; false if finalizing. </param>
         public void Dispose(bool disposing)
         {
-            if (_disposed) throw new ObjectDisposedException(typeof(Bus).Name);
+            if (_disposed) return;
 
             foreach (var cts in _pathToReceiverCancelSources.Values)
             {
