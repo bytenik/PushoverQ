@@ -316,6 +316,8 @@ namespace PushoverQ
                             var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), token);
                             if (brokeredMessage == null) continue; // no message here
 
+                            var stopwatch = Stopwatch.StartNew();
+
                             if (brokeredMessage.ContentType == null)
                             {
                                 await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
@@ -349,7 +351,7 @@ namespace PushoverQ
                             }
                             catch (MessageLockLostException)
                             {
-                                // oh well...
+                                Logger.Warn("Lost lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
                             }
                         }
                         catch (MessagingEntityNotFoundException)
@@ -359,11 +361,11 @@ namespace PushoverQ
                         catch (OperationCanceledException e)
                         {
                             if (e.CancellationToken != token)
-                                Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump. This indicates a bug in PushoverQ.", path);                                
+                                Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
                         }
                         catch (Exception e)
                         {
-                            Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump. This indicates a bug in PushoverQ.", path);
+                            Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
                         }
                     }
 
