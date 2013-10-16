@@ -312,6 +312,16 @@ namespace PushoverQ
 
             Task.Run(async () =>
                 {
+                    using (token.Register(() =>
+                    {
+                        try
+                        {
+                            receiver.Close();
+                        }
+                        catch
+                        {
+                        }
+                    }))
                     while (!token.IsCancellationRequested)
                     {
                         try
