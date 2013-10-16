@@ -16,7 +16,7 @@ namespace PushoverQ.Tests
     /// The publish tests.
     /// </summary>
     [TestFixture]
-    public class PublishTests : IDisposable
+    public class PublishTests
     {
         /// <summary>
         /// The test bus.
@@ -34,12 +34,28 @@ namespace PushoverQ.Tests
             const int TcpPort = 9354;
             const string ServiceNamespace = "ServiceBusDefaultNamespace";
 
-            // Common.Logging.LogManager.Adapter = new Common.Logging.NLog.NLogLoggerFactoryAdapter(new NameValueCollection { { "configType", "FILE" }, { "configFile", "~/NLog.config" } });
-
             var connBuilder = new ServiceBusConnectionStringBuilder { ManagementPort = HttpPort, RuntimePort = TcpPort };
             connBuilder.Endpoints.Add(new UriBuilder { Scheme = "sb", Host = serverFQDN, Path = ServiceNamespace }.Uri);
             connBuilder.StsEndpoints.Add(new UriBuilder { Scheme = "https", Host = serverFQDN, Port = HttpPort, Path = ServiceNamespace }.Uri);
-            _testBus = Bus.CreateBus(cfg => cfg.WithConnectionString(connBuilder.ToString())).Result;
+            _testBus = Bus.CreateBus(cfg => cfg.WithConnectionString(connBuilder.ToString()).WithLogger(new TestLogger())).Result;
+        }
+
+        /// <summary>
+        /// Publish a message and ensure that the message is renewed appropriately.
+        /// </summary>
+        /// <returns> The <see cref="Task"/>. </returns>
+        [Test]
+        public async Task SlowConsumerRenews()
+        {
+            bool gate = false;
+            await _testBus.Subscribe<string>(async m =>
+            {
+                await Task.Delay(TimeSpan.FromMinutes(2));
+                gate = true;
+            });
+
+            await _testBus.Send("test message");
+            SpinWait.SpinUntil(() => gate);
         }
 
         /// <summary>
@@ -201,14 +217,6 @@ namespace PushoverQ.Tests
         /// </summary>
         [TestFixtureTearDown]
         public void TearDown()
-        {
-            _testBus.Dispose();
-        }
-
-        /// <summary>
-        /// The dispose.
-        /// </summary>
-        public void Dispose()
         {
             _testBus.Dispose();
         }

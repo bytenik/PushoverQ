@@ -32,12 +32,10 @@ namespace PushoverQ.Tests
             const int TcpPort = 9354;
             const string ServiceNamespace = "ServiceBusDefaultNamespace";
 
-            // Common.Logging.LogManager.Adapter = new Common.Logging.NLog.NLogLoggerFactoryAdapter(new NameValueCollection { { "configType", "FILE" }, { "configFile", "~/NLog.config" } });
-
             var connBuilder = new ServiceBusConnectionStringBuilder { ManagementPort = HttpPort, RuntimePort = TcpPort };
             connBuilder.Endpoints.Add(new UriBuilder { Scheme = "sb", Host = serverFQDN, Path = ServiceNamespace }.Uri);
             connBuilder.StsEndpoints.Add(new UriBuilder { Scheme = "https", Host = serverFQDN, Port = HttpPort, Path = ServiceNamespace }.Uri);
-            _testBus = Bus.CreateBus(cfg => cfg.WithConnectionString(connBuilder.ToString())).Result;
+            _testBus = Bus.CreateBus(cfg => cfg.WithConnectionString(connBuilder.ToString()).WithLogger(new TestLogger())).Result;
         }
 
         /// <summary>

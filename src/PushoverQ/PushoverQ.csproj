@@ -56,6 +56,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AsyncTimer.cs" />
     <Compile Include="BinaryFormatterSerializer.cs" />
     <Compile Include="BitBucketLogger.cs" />
     <Compile Include="Bus.cs" />

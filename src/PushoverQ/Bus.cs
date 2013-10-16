@@ -259,7 +259,7 @@ namespace PushoverQ
             }
         }
 
-        private async Task<Exception> HandleMessage(object message, Envelope envelope, IEnumerable<Func<object, Envelope, Task>> handlers)
+        private async Task<Exception> HandleMessage(object message, Envelope envelope, IEnumerable<Func<object, Envelope, Task>> handlers, CancellationToken token)
         {
             if (message == null) return null;
             if (envelope == null) throw new ArgumentNullException("envelope");
@@ -353,18 +353,55 @@ namespace PushoverQ
                                 SequenceNumber = brokeredMessage.SequenceNumber
                             };
 
-                            var ex = await HandleMessage(message, envelope, _pathToHandlers[path]);
+                            using (var lockLostCts = new CancellationTokenSource())
+                            using (var renewalCts = new CancellationTokenSource())
+                            {
+                                Task.Run(async () =>
+                                {
+                                    var renewalToken = renewalCts.Token;
 
-                            try
-                            {
-                                if (ex == null)
-                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), token);
-                                else
-                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), token);
-                            }
-                            catch (MessageLockLostException)
-                            {
-                                Logger.Warn("Lost lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                    while (true)
+                                    {
+                                        renewalToken.ThrowIfCancellationRequested();
+
+                                        var timeToWait = brokeredMessage.LockedUntilUtc - DateTime.UtcNow;
+                                        timeToWait = new TimeSpan(timeToWait.Ticks - (timeToWait.Ticks / 10)); // add in a 10% cushion
+                                        if (timeToWait > TimeSpan.Zero)
+                                            await Task.Delay(timeToWait, renewalToken);
+
+                                        try
+                                        {
+                                            Logger.Trace("Renewing lock on message {0} of type {1}, due to long consumer runtime", brokeredMessage.MessageId, type);
+                                            await RetryPolicy.ExecuteAsync(() => brokeredMessage.RenewLockAsync(), renewalToken);
+                                        }
+                                        catch (MessageLockLostException)
+                                        {
+                                            if (!renewalToken.IsCancellationRequested)
+                                            {
+                                                Logger.Warn("Lost lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                                lockLostCts.Cancel();
+                                            }
+
+                                            return;
+                                        }
+                                    }
+                                }, renewalCts.Token);
+
+                                var ex = await HandleMessage(message, envelope, _pathToHandlers[path], lockLostCts.Token);
+
+                                try
+                                {
+                                    if (ex == null)
+                                        await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), token);
+                                    else
+                                        await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), token);
+                                }
+                                catch (MessageLockLostException)
+                                {
+                                    Logger.Warn("Lost lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                }
+
+                                renewalCts.Cancel(); // stop renewing
                             }
                         }
                         catch (MessagingEntityNotFoundException)
