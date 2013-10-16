@@ -57,7 +57,7 @@ namespace PushoverQ.Tests
         }
 
         [Test]
-        public async Task DisconnectBuDuringPublish()
+        public async Task DisconnectBusDuringPublish()
         {
             var consumer = _testBus.Consume<string>();
             await _testBus.Send("testing");
