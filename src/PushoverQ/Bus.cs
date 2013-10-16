@@ -372,7 +372,14 @@ namespace PushoverQ
                         }
                     }
 
-                    await RetryPolicy.ExecuteAsync(() => receiver.CloseAsync());
+                    try
+                    {
+                        await RetryPolicy.ExecuteAsync(() => receiver.CloseAsync());
+                    }
+                    catch
+                    {
+                        // don't care
+                    }
 
                     try
                     {
@@ -383,9 +390,9 @@ namespace PushoverQ
                         // don't care
                     }
 
-                    _pathToReceiverCancelSources.Remove(path, cts);
+                    _pathToReceiverCancelSources.Remove(path, cts); // silently fails if missing
 
-                    Logger.Debug("Receiver for path {0} shut down gracefully.", path);
+                    Logger.Debug("Receiver for path {0} shut down gracefully", path);
 
                     throw new OperationCanceledException(token);
                 }, token);
@@ -529,6 +536,8 @@ namespace PushoverQ
                 cts.Cancel();
                 cts.Dispose();
             }
+
+            SpinWait.SpinUntil(() => _pathToReceiverCancelSources.Count == 0);
 
             _disposed = true;
         }
