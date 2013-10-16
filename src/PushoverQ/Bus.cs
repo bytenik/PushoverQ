@@ -59,7 +59,10 @@ namespace PushoverQ
             _settings = settings;
 
             _mf = MessagingFactory.CreateFromConnectionString(settings.ConnectionString);
+            _mf.RetryPolicy = new NoRetry(); // we retry in application logic
+
             _nm = NamespaceManager.CreateFromConnectionString(settings.ConnectionString);
+            
             _publishSemaphore = new SemaphoreSlim(settings.MaxMessagesInFlight);
         }
 
