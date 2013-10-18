@@ -110,23 +110,22 @@ namespace PushoverQ
                 {
                     var brokeredMessages = messages.Select(message =>
                     {
-                        using (var ms = new MemoryStream())
-                        {
-                            _settings.Serializer.Serialize(message, ms);
+                        var ms = new MemoryStream(); // do not wrap this with a using statement; the BrokeredMessage owns the stream and will dispose it
+                        _settings.Serializer.Serialize(message, ms);
 
-                            ms.Seek(0, SeekOrigin.Begin);
-                            var brokeredMessage = new BrokeredMessage(ms, false);
-                            brokeredMessage.MessageId = messageId.ToString("n");
-                            if (visibleAfter != null)
-                                brokeredMessage.ScheduledEnqueueTimeUtc = visibleAfter.Value;
-                            if (expiration != null)
-                                brokeredMessage.TimeToLive = expiration.Value;
+                        ms.Seek(0, SeekOrigin.Begin);
+                        var brokeredMessage = new BrokeredMessage(ms, true);
+                        brokeredMessage.MessageId = messageId.ToString("n");
+                        if (visibleAfter != null)
+                            brokeredMessage.ScheduledEnqueueTimeUtc = visibleAfter.Value;
+                        if (expiration != null)
+                            brokeredMessage.TimeToLive = expiration.Value;
 
-                            brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
-                            return brokeredMessage;
-                        }
+                        brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
+                        return brokeredMessage;
                     });
 
+                    // await sender.SendAsync(brokeredMessages.First()).WithCancellation(token);
                     await sender.SendBatchAsync(brokeredMessages).WithCancellation(token);
                 }, token);
 
