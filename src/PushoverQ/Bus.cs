@@ -69,16 +69,32 @@ namespace PushoverQ
         #region Publish
 
         /// <inheritdoc/>
-        public async Task Send(object message, string destination, bool confirmation, TimeSpan? expiration, DateTime? visibleAfter, CancellationToken token)
+        public Task Send(object message, string destination, bool confirmation, TimeSpan? expiration, DateTime? visibleAfter, CancellationToken token)
         {
             if (message == null) throw new ArgumentNullException("message");
-
-            var type = message.GetType();
-            if (destination == null) destination = GetTopicName(type);
             
+            return Send(new[] { message }, destination, confirmation, expiration, visibleAfter, token);
+        }
+
+        /// <inheritdoc/>
+        public async Task Send(IEnumerable<object> messages, string destination, bool confirmation, TimeSpan? expiration, DateTime? visibleAfter, CancellationToken token)
+        {
+            if (messages == null) throw new ArgumentNullException("messages");
+
+            var typesWithMessages = messages.GroupBy(x => x.GetType()).ToArray();
+            if (typesWithMessages.Length > 1)
+            {
+                var tasks = typesWithMessages.Select(batch => Send(batch, destination, confirmation, expiration, visibleAfter, token));
+                await Task.WhenAll(tasks);
+                return;
+            }
+
+            var type = typesWithMessages.Single().Key;
+            if (destination == null) destination = GetTopicName(type);
+
             var messageId = Guid.NewGuid();
 
-            Logger.Debug("BEGIN: Waiting to send message of messageType `{0}` and id `{1:n}' to the bus", message.GetType().FullName, messageId);
+            Logger.Debug("BEGIN: Waiting to send messages of messageType `{0}` to the bus",type.FullName, messageId);
 
             await _publishSemaphore.WaitAsync(token);
 
@@ -92,21 +108,26 @@ namespace PushoverQ
 
                 await RetryPolicy.ExecuteAsync(async () =>
                 {
-                    using (var ms = new MemoryStream())
+                    var brokeredMessages = messages.Select(message =>
                     {
-                        _settings.Serializer.Serialize(message, ms);
+                        using (var ms = new MemoryStream())
+                        {
+                            _settings.Serializer.Serialize(message, ms);
 
-                        ms.Seek(0, SeekOrigin.Begin);
-                        var brokeredMessage = new BrokeredMessage(ms, false);
-                        brokeredMessage.MessageId = messageId.ToString("n");
-                        if (visibleAfter != null)
-                            brokeredMessage.ScheduledEnqueueTimeUtc = visibleAfter.Value;
-                        if (expiration != null)
-                            brokeredMessage.TimeToLive = expiration.Value;
+                            ms.Seek(0, SeekOrigin.Begin);
+                            var brokeredMessage = new BrokeredMessage(ms, false);
+                            brokeredMessage.MessageId = messageId.ToString("n");
+                            if (visibleAfter != null)
+                                brokeredMessage.ScheduledEnqueueTimeUtc = visibleAfter.Value;
+                            if (expiration != null)
+                                brokeredMessage.TimeToLive = expiration.Value;
 
-                        brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
-                        await sender.SendAsync(brokeredMessage).WithCancellation(token);
-                    }
+                            brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
+                            return brokeredMessage;
+                        }
+                    });
+
+                    await sender.SendBatchAsync(brokeredMessages).WithCancellation(token);
                 }, token);
 
                 await RetryPolicy.ExecuteAsync(() => sender.CloseAsync(), token);
@@ -365,7 +386,7 @@ namespace PushoverQ
                                         renewalToken.ThrowIfCancellationRequested();
 
                                         var timeToWait = brokeredMessage.LockedUntilUtc - DateTime.UtcNow;
-                                        timeToWait = new TimeSpan(timeToWait.Ticks - (timeToWait.Ticks / 10)); // add in a 10% cushion
+                                        timeToWait = new TimeSpan(timeToWait.Ticks - (long)(timeToWait.Ticks * 0.1)); // add in a 10% cushion
                                         if (timeToWait > TimeSpan.Zero)
                                             await Task.Delay(timeToWait, renewalToken);
 
@@ -378,7 +399,7 @@ namespace PushoverQ
                                         {
                                             if (!renewalToken.IsCancellationRequested)
                                             {
-                                                Logger.Warn("Lost lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                                Logger.Warn("Failed to renew lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
                                                 lockLostCts.Cancel();
                                             }
 
