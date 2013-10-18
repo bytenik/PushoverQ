@@ -377,6 +377,8 @@ namespace PushoverQ
                             using (var lockLostCts = new CancellationTokenSource())
                             using (var renewalCts = new CancellationTokenSource())
                             {
+                                bool doneProcessing = false;
+
                                 Task.Run(async () =>
                                 {
                                     var renewalToken = renewalCts.Token;
@@ -397,7 +399,7 @@ namespace PushoverQ
                                         }
                                         catch (MessageLockLostException)
                                         {
-                                            if (!renewalToken.IsCancellationRequested)
+                                            if (!renewalToken.IsCancellationRequested && !doneProcessing)
                                             {
                                                 Logger.Warn("Failed to renew lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
                                                 lockLostCts.Cancel();
@@ -409,6 +411,7 @@ namespace PushoverQ
                                 }, renewalCts.Token);
 
                                 var ex = await HandleMessage(message, envelope, _pathToHandlers[path], lockLostCts.Token);
+                                doneProcessing = true;
 
                                 try
                                 {
