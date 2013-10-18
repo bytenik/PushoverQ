@@ -123,13 +123,28 @@ namespace PushoverQ
 
                         brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
                         return brokeredMessage;
-                    });
+                    }).ToArray();
 
-                    // await sender.SendAsync(brokeredMessages.First()).WithCancellation(token);
-                    await sender.SendBatchAsync(brokeredMessages).WithCancellation(token);
+                    try
+                    {
+                        await sender.SendBatchAsync(brokeredMessages).WithCancellation(token);
+                    }
+                    finally
+                    {
+                        // always dispose the brokered messages
+                        foreach (var brokeredMessage in brokeredMessages)
+                            brokeredMessage.Dispose();
+                    }
                 }, token);
 
-                await RetryPolicy.ExecuteAsync(() => sender.CloseAsync(), token);
+                try
+                {
+                    await RetryPolicy.ExecuteAsync(() => sender.CloseAsync(), token);
+                }
+                catch
+                {
+                    // no-op
+                }
 
                 Logger.Debug("END: Sent message with id `{0:n}' to the bus", messageId);
             }
@@ -346,85 +361,84 @@ namespace PushoverQ
                     {
                         try
                         {
-                            var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), token);
-                            if (brokeredMessage == null) continue; // no message here
-
-                            var stopwatch = Stopwatch.StartNew();
-
-                            if (brokeredMessage.ContentType == null)
+                            using (var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), token))
                             {
-                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
-                                continue;
-                            }
+                                if (brokeredMessage == null) continue; // no message here
 
-                            var type = Type.GetType(brokeredMessage.ContentType, false);
-                            if (type == null)
-                            {
-                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
-                                continue;
-                            }
+                                var stopwatch = Stopwatch.StartNew();
 
-                            object message;
-                            using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
-
-                            var envelope = new Envelope
-                            {
-                                MessageId = Guid.Parse(brokeredMessage.MessageId),
-                                SequenceNumber = brokeredMessage.SequenceNumber
-                            };
-
-                            using (var lockLostCts = new CancellationTokenSource())
-                            using (var renewalCts = new CancellationTokenSource())
-                            {
-                                bool doneProcessing = false;
-
-                                Task.Run(async () =>
+                                if (brokeredMessage.ContentType == null)
                                 {
-                                    var renewalToken = renewalCts.Token;
+                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
+                                    continue;
+                                }
 
-                                    while (true)
+                                var type = Type.GetType(brokeredMessage.ContentType, false);
+                                if (type == null)
+                                {
+                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
+                                    continue;
+                                }
+
+                                object message;
+                                using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
+
+                                var envelope = new Envelope
+                                {
+                                    MessageId = Guid.Parse(brokeredMessage.MessageId),
+                                    SequenceNumber = brokeredMessage.SequenceNumber
+                                };
+
+                                using (var lockLostCts = new CancellationTokenSource())
+                                using (var renewalCts = new CancellationTokenSource())
+                                {
+                                    bool doneProcessing = false;
+
+                                    Task.Run(async () =>
                                     {
-                                        renewalToken.ThrowIfCancellationRequested();
+                                        var renewalToken = renewalCts.Token;
 
-                                        var timeToWait = brokeredMessage.LockedUntilUtc - DateTime.UtcNow;
-                                        timeToWait = new TimeSpan(timeToWait.Ticks - (long)(timeToWait.Ticks * 0.1)); // add in a 10% cushion
-                                        if (timeToWait > TimeSpan.Zero)
-                                            await Task.Delay(timeToWait, renewalToken);
+                                        while (true)
+                                        {
+                                            renewalToken.ThrowIfCancellationRequested();
 
-                                        try
-                                        {
-                                            Logger.Trace("Renewing lock on message {0} of type {1}, due to long consumer runtime", brokeredMessage.MessageId, type);
-                                            await RetryPolicy.ExecuteAsync(() => brokeredMessage.RenewLockAsync(), renewalToken);
-                                        }
-                                        catch (MessageLockLostException)
-                                        {
-                                            if (!renewalToken.IsCancellationRequested && !doneProcessing)
+                                            var timeToWait = brokeredMessage.LockedUntilUtc - DateTime.UtcNow;
+                                            timeToWait = new TimeSpan(timeToWait.Ticks - (long)(timeToWait.Ticks * 0.1)); // add in a 10% cushion
+                                            if (timeToWait > TimeSpan.Zero) await Task.Delay(timeToWait, renewalToken);
+
+                                            try
                                             {
-                                                Logger.Warn("Failed to renew lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
-                                                lockLostCts.Cancel();
+                                                Logger.Trace("Renewing lock on message {0} of type {1}, due to long consumer runtime", brokeredMessage.MessageId, type);
+                                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.RenewLockAsync(), renewalToken);
                                             }
+                                            catch (MessageLockLostException)
+                                            {
+                                                if (!renewalToken.IsCancellationRequested && !doneProcessing)
+                                                {
+                                                    Logger.Warn("Failed to renew lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                                    lockLostCts.Cancel();
+                                                }
 
-                                            return;
+                                                return;
+                                            }
                                         }
+                                    }, renewalCts.Token);
+
+                                    var ex = await HandleMessage(message, envelope, _pathToHandlers[path], lockLostCts.Token);
+                                    doneProcessing = true;
+
+                                    try
+                                    {
+                                        if (ex == null) await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), token);
+                                        else await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), token);
                                     }
-                                }, renewalCts.Token);
+                                    catch (MessageLockLostException)
+                                    {
+                                        Logger.Warn("Lost lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                    }
 
-                                var ex = await HandleMessage(message, envelope, _pathToHandlers[path], lockLostCts.Token);
-                                doneProcessing = true;
-
-                                try
-                                {
-                                    if (ex == null)
-                                        await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), token);
-                                    else
-                                        await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), token);
+                                    renewalCts.Cancel(); // stop renewing
                                 }
-                                catch (MessageLockLostException)
-                                {
-                                    Logger.Warn("Lost lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
-                                }
-
-                                renewalCts.Cancel(); // stop renewing
                             }
                         }
                         catch (MessagingEntityNotFoundException)
@@ -433,13 +447,13 @@ namespace PushoverQ
                         }
                         catch (OperationCanceledException e)
                         {
-                            if (e.CancellationToken != token)
-                                Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
+                            if (e.CancellationToken != token) Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
                         }
                         catch (Exception e)
                         {
                             Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
                         }
+
                     }
 
                     try
