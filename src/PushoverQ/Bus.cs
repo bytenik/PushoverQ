@@ -403,19 +403,19 @@ namespace PushoverQ
                                             renewalToken.ThrowIfCancellationRequested();
 
                                             var timeToWait = brokeredMessage.LockedUntilUtc - DateTime.UtcNow;
-                                            timeToWait = new TimeSpan(timeToWait.Ticks - (long)(timeToWait.Ticks * 0.1)); // add in a 10% cushion
+                                            timeToWait = new TimeSpan(timeToWait.Ticks - (long)(timeToWait.Ticks * _settings.RenewalThreshold)); // add in a cushion
                                             if (timeToWait > TimeSpan.Zero) await Task.Delay(timeToWait, renewalToken);
 
                                             try
                                             {
-                                                Logger.Trace("Renewing lock on message {0} of type {1}, due to long consumer runtime", brokeredMessage.MessageId, type);
+                                                Logger.Info("Renewing lock on message {0} of type {1} due to long consumer runtime. Consider increasing lock duration", brokeredMessage.MessageId, type);
                                                 await RetryPolicy.ExecuteAsync(() => brokeredMessage.RenewLockAsync(), renewalToken);
                                             }
                                             catch (MessageLockLostException)
                                             {
                                                 if (!renewalToken.IsCancellationRequested && !doneProcessing)
                                                 {
-                                                    Logger.Warn("Failed to renew lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                                    Logger.Warn("Failed to renew lock on message of type {0}, after {1} processing time. The message will be available again for dequeueing", type, stopwatch.Elapsed);
                                                     lockLostCts.Cancel();
                                                 }
 
@@ -434,7 +434,7 @@ namespace PushoverQ
                                     }
                                     catch (MessageLockLostException)
                                     {
-                                        Logger.Warn("Lost lock on message of type {0}, after {1} processing time; the message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                        Logger.Warn("Lost lock on message of type {0}, after {1} processing time. The message will be available again for dequeueing", type, stopwatch.Elapsed);
                                     }
 
                                     renewalCts.Cancel(); // stop renewing

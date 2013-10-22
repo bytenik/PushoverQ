@@ -71,5 +71,11 @@ namespace PushoverQ.Configuration
             Settings.Logger = logger;
             return this;
         }
+
+        public BusConfigurator WithRenewalThreshold(float threshold)
+        {
+            Settings.RenewalThreshold = threshold;
+            return this;
+        }
     }
 }

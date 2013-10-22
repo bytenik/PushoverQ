@@ -12,6 +12,8 @@ namespace PushoverQ.Configuration
     /// </summary>
     class BusSettings
     {
+        float _renewalThreshold;
+
         /// <summary>
         /// Gets or sets the name of this specific endpoint. This name must be unique on the service bus for pub/sub to work properly.
         /// </summary>
@@ -53,6 +55,25 @@ namespace PushoverQ.Configuration
         public ILog Logger { get; set; }
 
         /// <summary>
+        /// Gets or sets the percentage (expressed as a number between 0.0 and 1.0) of total lock time that should elapse before auto-renewing a lock.
+        /// </summary>
+        public float RenewalThreshold
+        {
+            get
+            {
+                return _renewalThreshold;
+            }
+
+            set
+            {
+                if (value < 0 || value > 1f)
+                    throw new ArgumentOutOfRangeException("value", "Must be a value between 0 and 1");
+
+                _renewalThreshold = value;
+            }
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="BusSettings"/> class.
         /// </summary>
         public BusSettings()
@@ -64,6 +85,7 @@ namespace PushoverQ.Configuration
             TopicNameResolver = t => t.FullName.Replace("[]", "_Array").Right(50);
             Serializer = new BinaryFormatterSerializer();
             Logger = new BitBucketLogger();
+            RenewalThreshold = 0.5f;
         }
     }
 }
