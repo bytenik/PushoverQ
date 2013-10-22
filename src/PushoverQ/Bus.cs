@@ -381,7 +381,8 @@ namespace PushoverQ
                                 }
 
                                 object message;
-                                using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
+                                using (var stream = brokeredMessage.GetBody<Stream>())
+                                    message = _settings.Serializer.Deserialize(type, stream);
 
                                 var envelope = new Envelope
                                 {
