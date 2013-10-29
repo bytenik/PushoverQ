@@ -92,15 +92,19 @@ namespace PushoverQ
             var type = typesWithMessages.Single().Key;
             if (destination == null) destination = GetTopicName(type);
 
-            var messageId = Guid.NewGuid();
+            var messagesWithIds = messages.Select(x => new
+            {
+                Message = x,
+                Id = Guid.NewGuid()
+            }).ToArray(); // must ToArray this or else you will get a new id for each evaluation
 
-            Logger.Debug("BEGIN: Waiting to send messages of messageType `{0}` to the bus", type.FullName, messageId);
+            Logger.Debug("BEGIN: Waiting to send messages of messageType `{0}' and ids `{1}' to the bus", type.FullName, string.Join("; ", messagesWithIds.Select(x => x.Id.ToString("n"))));
 
             await _publishSemaphore.WaitAsync(token);
 
-            Logger.Trace("GO: Sending message with id `{0:n}` to the bus", messageId);
-
             if (confirmation) throw new NotImplementedException();
+
+            Logger.Trace("GO: Sending messages with ids `{0}' to the bus", string.Join("; ", messagesWithIds.Select(x => x.Id.ToString("n"))));
 
             try
             {
@@ -108,20 +112,20 @@ namespace PushoverQ
 
                 await RetryPolicy.ExecuteAsync(async () =>
                 {
-                    var brokeredMessages = messages.Select(message =>
+                    var brokeredMessages = messagesWithIds.Select(mi =>
                     {
                         var ms = new MemoryStream(); // do not wrap this with a using statement; the BrokeredMessage owns the stream and will dispose it
-                        _settings.Serializer.Serialize(message, ms);
+                        _settings.Serializer.Serialize(mi.Message, ms);
 
                         ms.Seek(0, SeekOrigin.Begin);
                         var brokeredMessage = new BrokeredMessage(ms, true);
-                        brokeredMessage.MessageId = messageId.ToString("n");
+                        brokeredMessage.MessageId = mi.Id.ToString("n");
                         if (visibleAfter != null)
                             brokeredMessage.ScheduledEnqueueTimeUtc = visibleAfter.Value;
                         if (expiration != null)
                             brokeredMessage.TimeToLive = expiration.Value;
 
-                        brokeredMessage.ContentType = message.GetType().AssemblyQualifiedName;
+                        brokeredMessage.ContentType = mi.Message.GetType().AssemblyQualifiedName;
                         return brokeredMessage;
                     }).ToArray();
 
@@ -146,7 +150,7 @@ namespace PushoverQ
                     // no-op
                 }
 
-                Logger.Debug("END: Sent message with id `{0:n}' to the bus", messageId);
+                Logger.Debug("END: Sent messages with ids `{0}'", string.Join("; ", messagesWithIds.Select(x => x.Id.ToString("n"))));
             }
             finally
             {
