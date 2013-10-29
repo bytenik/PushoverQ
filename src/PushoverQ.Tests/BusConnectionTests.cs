@@ -59,7 +59,6 @@ namespace PushoverQ.Tests
         {
             var consumer = _testBus.Consume<string>();
             await _testBus.Send("testing");
-            
         }
 
         /// <summary>

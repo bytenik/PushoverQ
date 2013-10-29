@@ -94,7 +94,7 @@ namespace PushoverQ
 
             var messageId = Guid.NewGuid();
 
-            Logger.Debug("BEGIN: Waiting to send messages of messageType `{0}` to the bus",type.FullName, messageId);
+            Logger.Debug("BEGIN: Waiting to send messages of messageType `{0}` to the bus", type.FullName, messageId);
 
             await _publishSemaphore.WaitAsync(token);
 
@@ -454,7 +454,6 @@ namespace PushoverQ
                         {
                             Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
                         }
-
                     }
 
                     try
