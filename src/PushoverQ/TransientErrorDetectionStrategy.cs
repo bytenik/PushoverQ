@@ -25,11 +25,15 @@ namespace PushoverQ
             if (ex is ServerTooBusyException)
                 return true;
             if (ex is MessagingCommunicationException)
-                return ((MessagingCommunicationException)ex).IsTransient;
+                return ((MessagingCommunicationException)ex).IsTransient
+                    || ex.Message.Contains("The socket connection was aborted.");
             if (ex is MessagingException)
-                return ex.Message.Contains("please retry the operation")
+                return ((MessagingException)ex).IsTransient
+                    || ex.Message.Contains("please retry the operation")
                     || ex.Message.Contains("service was not avaliable")
-                    || ex.Message.Contains("Provider Internal Error");
+                    || ex.Message.Contains("service was not available")
+                    || ex.Message.Contains("Provider Internal Error")
+                    || ex.Message.Contains("Another conflicting operation is in progress");
             if (ex is CommunicationException)
                 return true;
             if (ex is SocketException)
