@@ -11,6 +11,8 @@
       <Value>html</Value>
       <Value>ints</Value>
       <Value>json</Value>
+      <Value>dequeue</Value>
+      <Value>dequeued</Value>
       <Value>regexing</Value>
       <Value>str</Value>
       <Value>uints</Value>
