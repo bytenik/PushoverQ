@@ -256,46 +256,76 @@ namespace PushoverQ
             }
         }
 
-        private async Task CreateTopic(string name)
+        async Task CreateTopic(string name)
         {
             Logger.Trace("Creating topic {0}", name);
 
+            var td = new TopicDescription(name)
+            {
+                EnableBatchedOperations = true,
+                IsAnonymousAccessible = false,
+                MaxSizeInMegabytes = 1024*5, // max size allowed by bus is 5 GB
+                RequiresDuplicateDetection = true,
+                AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
+            };
+
             try
             {
-                var td = new TopicDescription(name)
-                {
-                    EnableBatchedOperations = true,
-                    IsAnonymousAccessible = false,
-                    MaxSizeInMegabytes = 1024 * 5, // max size allowed by bus is 5 GB
-                    RequiresDuplicateDetection = true,
-                    AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
-                };
                 await RetryPolicy.ExecuteAsync(() => _nm.CreateTopicAsync(td));
+                return;
             }
             catch (MessagingEntityAlreadyExistsException)
             {
                 Logger.Trace("Topic {0} already exists", name);
             }
+
+            try
+            {
+                await RetryPolicy.ExecuteAsync(() => _nm.UpdateTopicAsync(td));
+                return;
+            }
+            catch (MessagingEntityNotFoundException)
+            {
+                Logger.Warn("Topic {0} is not found (but was just found seconds earlier)", name);
+            }
+
+            // wtf
+            await CreateTopic(name);
         }
 
         private async Task CreateSubscription(string topic, string subscription)
         {
             Logger.Trace("Creating subscription {0} for topic {1}", subscription, topic);
 
+            var sd = new SubscriptionDescription(topic, subscription)
+            {
+                RequiresSession = false,
+                EnableBatchedOperations = true,
+                AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
+            };
+
             try
             {
-                var sd = new SubscriptionDescription(topic, subscription)
-                {
-                    RequiresSession = false,
-                    EnableBatchedOperations = true,
-                    AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
-                };
                 await RetryPolicy.ExecuteAsync(() => _nm.CreateSubscriptionAsync(sd));
+                return;
             }
             catch (MessagingEntityAlreadyExistsException)
             {
                 Logger.Trace("Subscription {0} for topic {1} already exists", subscription, topic);
             }
+
+            try
+            {
+                await RetryPolicy.ExecuteAsync(() => _nm.UpdateSubscriptionAsync(sd));
+                return;
+            }
+            catch (MessagingEntityNotFoundException)
+            {
+                Logger.Warn("Subscription {0} for topic {1} is not found (but was just found seconds earlier)", subscription, topic);
+            }
+            
+            // wtf
+            await CreateSubscription(topic, subscription);
         }
 
         private async Task<Exception> HandleMessage(object message, Envelope envelope, IEnumerable<Func<object, Envelope, Task>> handlers, CancellationToken token)
@@ -373,6 +403,7 @@ namespace PushoverQ
 
                                 if (brokeredMessage.ContentType == null)
                                 {
+                                    Logger.Warn("Encountered message {0} with null content type", brokeredMessage.MessageId);
                                     await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
                                     continue;
                                 }
@@ -380,6 +411,7 @@ namespace PushoverQ
                                 var type = Type.GetType(brokeredMessage.ContentType, false);
                                 if (type == null)
                                 {
+                                    Logger.Warn("Encountered message {0} with {1} content type, which has no matching class", brokeredMessage.MessageId, brokeredMessage.ContentType);
                                     await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
                                     continue;
                                 }
