@@ -13,6 +13,7 @@ namespace PushoverQ.Configuration
     class BusSettings
     {
         float _renewalThreshold;
+        TimeSpan _lockDuration;
 
         /// <summary>
         /// Gets or sets the name of this specific endpoint. This name must be unique on the service bus for pub/sub to work properly.
@@ -74,6 +75,31 @@ namespace PushoverQ.Configuration
         }
 
         /// <summary>
+        /// Gets or sets the maximum number of times a message may be delivered from the bus before it is dead-lettered.
+        /// </summary>
+        public uint MaxDeliveryCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the duration for which a message should be locked. PushoverQ will attempt to renew the lock automatically based on
+        /// the <see cref="RenewalThreshold"/>. However, if the machine entirely crashes, this is the worst case amount of time until another machine
+        /// may work on a message.
+        /// </summary>
+        public TimeSpan LockDuration
+        {
+            get
+            {
+                return _lockDuration;
+            }
+
+            set
+            {
+                if (value <= TimeSpan.Zero || value > TimeSpan.FromMinutes(5))
+                    throw new ArgumentOutOfRangeException("value", "Must be a value between 0 and 5 minutes.");
+                _lockDuration = value;
+            }
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="BusSettings"/> class.
         /// </summary>
         public BusSettings()
@@ -86,6 +112,8 @@ namespace PushoverQ.Configuration
             Serializer = new BinaryFormatterSerializer();
             Logger = new BitBucketLogger();
             RenewalThreshold = 0.5f;
+            MaxDeliveryCount = 5;
+            LockDuration = TimeSpan.FromSeconds(60);
         }
     }
 }

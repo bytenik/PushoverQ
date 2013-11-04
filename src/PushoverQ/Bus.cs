@@ -17,7 +17,6 @@ using Microsoft.ServiceBus;
 using Microsoft.ServiceBus.Messaging;
 
 using PushoverQ.Configuration;
-using PushoverQ.RPC;
 
 using RetryPolicy = Microsoft.Practices.TransientFaultHandling.RetryPolicy;
 
@@ -264,7 +263,7 @@ namespace PushoverQ
             {
                 EnableBatchedOperations = true,
                 IsAnonymousAccessible = false,
-                MaxSizeInMegabytes = 1024*5, // max size allowed by bus is 5 GB
+                MaxSizeInMegabytes = 1024 * 5, // max size allowed by bus is 5 GB
                 RequiresDuplicateDetection = true,
                 AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
             };
@@ -301,7 +300,9 @@ namespace PushoverQ
             {
                 RequiresSession = false,
                 EnableBatchedOperations = true,
-                AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
+                AutoDeleteOnIdle = TimeSpan.FromMinutes(30),
+                LockDuration = _settings.LockDuration,
+                MaxDeliveryCount = (int)_settings.MaxDeliveryCount
             };
 
             try
@@ -617,7 +618,7 @@ namespace PushoverQ
             Func<object, Envelope, Task> handler = async (m, e) =>
             {
                 var impl = resolver();
-                var msg = m as MethodCallCommand;
+                var msg = m as RPC.MethodCallCommand;
                 if (msg == null) return;
 
                 var mi = type.GetMethod(msg.MethodName, msg.ArgumentTypes.Select(Type.GetType).ToArray());

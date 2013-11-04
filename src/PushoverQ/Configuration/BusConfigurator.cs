@@ -77,5 +77,16 @@ namespace PushoverQ.Configuration
             Settings.RenewalThreshold = threshold;
             return this;
         }
+        public BusConfigurator WithMaxDeliveryCount(uint max)
+        {
+            Settings.MaxDeliveryCount = max;
+            return this;
+        }
+
+        public BusConfigurator WithLockDuration(TimeSpan duration)
+        {
+            Settings.LockDuration = duration;
+            return this;
+        }
     }
 }
