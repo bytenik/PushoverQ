@@ -26,7 +26,7 @@ namespace PushoverQ
                 return true;
             if (ex is MessagingCommunicationException)
                 return ((MessagingCommunicationException)ex).IsTransient
-                    || ex.Message.Contains("The socket connection was aborted.");
+                    || ex.ToString().Contains("The socket connection was aborted.");
             if (ex is MessagingException)
                 return ((MessagingException)ex).IsTransient
                     || ex.Message.Contains("please retry the operation")
