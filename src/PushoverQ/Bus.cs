@@ -400,7 +400,7 @@ namespace PushoverQ
         {
             await CreateMessagingEntity(path);
 
-            var receiver = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageReceiverAsync(path));
+            var receiver = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageReceiverAsync(path), token);
 
             var registration = token.Register(() =>
             {
@@ -506,11 +506,13 @@ namespace PushoverQ
             }
             catch (OperationCanceledException e)
             {
-                if (e.CancellationToken != token)
-                    Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
-                else
+                if (e.CancellationToken == token)
+                {
                     Logger.Debug("Receiver for path {0} shut down gracefully", path);
-
+                    throw new OperationCanceledException(token);
+                }
+                else
+                    Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
             }
             catch (Exception e)
             {
@@ -529,8 +531,6 @@ namespace PushoverQ
             {
                 // don't care
             }
-
-            throw new OperationCanceledException(token);
         }
 
         private async void SpinUpReceiver(string path)
@@ -541,7 +541,16 @@ namespace PushoverQ
 
             // keep trying to receive until we're told to stop
             while (!token.IsCancellationRequested)
-                await ReceiveMessages(path, token);
+            {
+                try
+                {
+                    await ReceiveMessages(path, token);
+                }
+                catch (OperationCanceledException e)
+                {
+                    if (e.CancellationToken != token) throw;
+                }
+            }
 
             try
             {
