@@ -274,9 +274,9 @@ namespace PushoverQ
                 await RetryPolicy.ExecuteAsync(() => _nm.CreateTopicAsync(td));
                 return;
             }
-            catch (MessagingEntityAlreadyExistsException)
+            catch (MessagingEntityAlreadyExistsException e)
             {
-                Logger.Trace("Topic {0} already exists", name);
+                Logger.Trace(e, "Topic {0} already exists", name);
             }
 
             try
@@ -284,9 +284,9 @@ namespace PushoverQ
                 await RetryPolicy.ExecuteAsync(() => _nm.UpdateTopicAsync(td));
                 return;
             }
-            catch (MessagingEntityNotFoundException)
+            catch (MessagingEntityNotFoundException e)
             {
-                Logger.Warn("Topic {0} is not found (but was just found seconds earlier)", name);
+                Logger.Warn(e, "Topic {0} is not found (but was just found seconds earlier)", name);
             }
 
             // wtf
@@ -311,9 +311,9 @@ namespace PushoverQ
                 await RetryPolicy.ExecuteAsync(() => _nm.CreateSubscriptionAsync(sd));
                 return;
             }
-            catch (MessagingEntityAlreadyExistsException)
+            catch (MessagingEntityAlreadyExistsException e)
             {
-                Logger.Trace("Subscription {0} for topic {1} already exists", subscription, topic);
+                Logger.Trace(e, "Subscription {0} for topic {1} already exists", subscription, topic);
             }
 
             try
@@ -321,13 +321,37 @@ namespace PushoverQ
                 await RetryPolicy.ExecuteAsync(() => _nm.UpdateSubscriptionAsync(sd));
                 return;
             }
-            catch (MessagingEntityNotFoundException)
+            catch (MessagingEntityNotFoundException e)
             {
-                Logger.Warn("Subscription {0} for topic {1} is not found (but was just found seconds earlier)", subscription, topic);
+                Logger.Warn(e, "Subscription {0} for topic {1} is not found (but was just found seconds earlier)", subscription, topic);
             }
             
             // wtf
             await CreateSubscription(topic, subscription);
+        }
+
+        private async Task CreateMessagingEntity(string path)
+        {
+            Logger.Trace("Creating entity for path {0}", path);
+
+            var pathParts = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+            // are we a queue or a subscription?
+            if (pathParts.Length == 1)
+            {
+                // we are a queue
+                await CreateQueue(pathParts[0]);
+            }
+            else if (pathParts.Length == 3 && pathParts[1].Equals("subscriptions", StringComparison.OrdinalIgnoreCase))
+            {
+                // we are a subscription
+                var topicName = pathParts[0];
+                var subscriptionName = pathParts[2];
+                await CreateTopic(topicName);
+                await CreateSubscription(topicName, subscriptionName);
+            }
+            else
+                throw new ArgumentException("Unsupported path format", "path");
         }
 
         private async Task<Exception> HandleMessage(object message, Envelope envelope, IEnumerable<Func<object, Envelope, Task>> handlers, CancellationToken token)
@@ -355,12 +379,12 @@ namespace PushoverQ
             catch (AggregateException ae)
             {
                 foreach (var ex in ae.InnerExceptions)
-                    Logger.Warn("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
+                    Logger.Warn(ex, "A consumer exception occurred handling message `{0:n}'", envelope.MessageId);
                 return ae;
             }
             catch (Exception ex)
             {
-                Logger.Warn("A consumer exception occurred handling message `{0:n}'", ex, envelope.MessageId);
+                Logger.Warn(ex, "A consumer exception occurred handling message `{0:n}'", envelope.MessageId);
                 return ex;
             }
 
@@ -372,162 +396,163 @@ namespace PushoverQ
         private readonly ConcurrentMultiMap<string, CancellationTokenSource> _pathToReceiverCancelSources = new ConcurrentMultiMap<string, CancellationTokenSource>();
         private readonly ConcurrentMultiMap<string, Func<object, Envelope, Task>> _pathToHandlers = new ConcurrentMultiMap<string, Func<object, Envelope, Task>>();
 
-        private async Task<MessageReceiver> SpinUpReceiver(string path)
+        private async Task ReceiveMessages(string path, CancellationToken token)
         {
+            await CreateMessagingEntity(path);
+
             var receiver = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageReceiverAsync(path));
-            
-            var cts = new CancellationTokenSource();
-            _pathToReceiverCancelSources.Add(path, cts);
 
-            var token = cts.Token;
-
-            Task.Run(async () =>
+            var registration = token.Register(() =>
+            {
+                try
                 {
-                    using (token.Register(() =>
+                    receiver.Close();
+                }
+                catch
+                {
+                }
+            });
+
+            try
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    using (var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), token))
                     {
-                        try
+                        if (brokeredMessage == null) continue; // no message here
+
+                        var stopwatch = Stopwatch.StartNew();
+
+                        if (brokeredMessage.ContentType == null)
                         {
-                            receiver.Close();
+                            Logger.Warn("Encountered message {0} with null content type", brokeredMessage.MessageId);
+                            await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
+                            continue;
                         }
-                        catch
+
+                        var type = Type.GetType(brokeredMessage.ContentType, false);
+                        if (type == null)
                         {
+                            Logger.Warn("Encountered message {0} with {1} content type, which has no matching class", brokeredMessage.MessageId, brokeredMessage.ContentType);
+                            await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
+                            continue;
                         }
-                    }))
-                    while (!token.IsCancellationRequested)
-                    {
-                        try
+
+                        object message;
+                        using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
+
+                        var envelope = new Envelope
                         {
-                            using (var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), token))
+                            MessageId = Guid.Parse(brokeredMessage.MessageId),
+                            SequenceNumber = brokeredMessage.SequenceNumber
+                        };
+
+                        using (var lockLostCts = new CancellationTokenSource())
+                        using (var renewalCts = new CancellationTokenSource())
+                        {
+                            bool doneProcessing = false;
+
+                            Task.Run(async () =>
                             {
-                                if (brokeredMessage == null) continue; // no message here
+                                var renewalToken = renewalCts.Token;
 
-                                var stopwatch = Stopwatch.StartNew();
-
-                                if (brokeredMessage.ContentType == null)
+                                while (true)
                                 {
-                                    Logger.Warn("Encountered message {0} with null content type", brokeredMessage.MessageId);
-                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
-                                    continue;
-                                }
+                                    renewalToken.ThrowIfCancellationRequested();
 
-                                var type = Type.GetType(brokeredMessage.ContentType, false);
-                                if (type == null)
-                                {
-                                    Logger.Warn("Encountered message {0} with {1} content type, which has no matching class", brokeredMessage.MessageId, brokeredMessage.ContentType);
-                                    await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync(), token);
-                                    continue;
-                                }
-
-                                object message;
-                                using (var stream = brokeredMessage.GetBody<Stream>())
-                                    message = _settings.Serializer.Deserialize(type, stream);
-
-                                var envelope = new Envelope
-                                {
-                                    MessageId = Guid.Parse(brokeredMessage.MessageId),
-                                    SequenceNumber = brokeredMessage.SequenceNumber
-                                };
-
-                                using (var lockLostCts = new CancellationTokenSource())
-                                using (var renewalCts = new CancellationTokenSource())
-                                {
-                                    bool doneProcessing = false;
-
-                                    Task.Run(async () =>
-                                    {
-                                        var renewalToken = renewalCts.Token;
-
-                                        while (true)
-                                        {
-                                            renewalToken.ThrowIfCancellationRequested();
-
-                                            var timeToWait = brokeredMessage.LockedUntilUtc - DateTime.UtcNow;
-                                            timeToWait = new TimeSpan(timeToWait.Ticks - (long)(timeToWait.Ticks * _settings.RenewalThreshold)); // add in a cushion
-                                            if (timeToWait > TimeSpan.Zero) await Task.Delay(timeToWait, renewalToken);
-
-                                            try
-                                            {
-                                                Logger.Info("Renewing lock on message {0} of type {1} due to long consumer runtime. Consider increasing lock duration", brokeredMessage.MessageId, type);
-                                                await RetryPolicy.ExecuteAsync(() => brokeredMessage.RenewLockAsync(), renewalToken);
-                                            }
-                                            catch (MessageLockLostException)
-                                            {
-                                                if (!renewalToken.IsCancellationRequested && !doneProcessing)
-                                                {
-                                                    Logger.Warn("Failed to renew lock on message of type {0}, after {1} processing time. The message will be available again for dequeueing", type, stopwatch.Elapsed);
-                                                    lockLostCts.Cancel();
-                                                }
-
-                                                return;
-                                            }
-                                        }
-                                    }, renewalCts.Token);
-
-                                    var ex = await HandleMessage(message, envelope, _pathToHandlers[path], lockLostCts.Token);
-                                    doneProcessing = true;
+                                    var timeToWait = brokeredMessage.LockedUntilUtc - DateTime.UtcNow;
+                                    timeToWait = new TimeSpan(timeToWait.Ticks - (long)(timeToWait.Ticks * _settings.RenewalThreshold)); // add in a cushion
+                                    if (timeToWait > TimeSpan.Zero) await Task.Delay(timeToWait, renewalToken);
 
                                     try
                                     {
-                                        if (ex == null) await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), token);
-                                        else await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), token);
+                                        Logger.Info("Renewing lock on message {0} of type {1} due to long consumer runtime. Consider increasing lock duration", brokeredMessage.MessageId, type);
+                                        await RetryPolicy.ExecuteAsync(() => brokeredMessage.RenewLockAsync(), renewalToken);
                                     }
                                     catch (MessageLockLostException)
                                     {
-                                        Logger.Warn("Lost lock on message of type {0}, after {1} processing time. The message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                        if (!renewalToken.IsCancellationRequested && !doneProcessing)
+                                        {
+                                            Logger.Warn("Failed to renew lock on message of type {0}, after {1} processing time. The message will be available again for dequeueing", type, stopwatch.Elapsed);
+                                            lockLostCts.Cancel();
+                                        }
+
+                                        return;
                                     }
-
-                                    renewalCts.Cancel(); // stop renewing
                                 }
+                            }, renewalCts.Token);
+
+                            var ex = await HandleMessage(message, envelope, _pathToHandlers[path], lockLostCts.Token);
+                            doneProcessing = true;
+
+                            try
+                            {
+                                if (ex == null) await RetryPolicy.ExecuteAsync(() => brokeredMessage.CompleteAsync(), token);
+                                else await RetryPolicy.ExecuteAsync(() => brokeredMessage.DeadLetterAsync("A consumer exception occurred", ex.ToString()), token);
                             }
-                        }
-                        catch (MessagingEntityNotFoundException)
-                        {
-                            Logger.Warn("Receiver for path {0} shut down because the messaging entity was deleted.", path);
-                        }
-                        catch (OperationCanceledException e)
-                        {
-                            if (e.CancellationToken != token) Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
-                        }
-                        catch (Exception e)
-                        {
-                            Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
+                            catch (MessageLockLostException e)
+                            {
+                                Logger.Warn(e, "Lost lock on message of type {0}, after {1} processing time. The message will be available again for dequeueing", type, stopwatch.Elapsed);
+                            }
+
+                            renewalCts.Cancel(); // stop renewing
                         }
                     }
-
-                    try
-                    {
-                        await RetryPolicy.ExecuteAsync(() => receiver.CloseAsync());
-                    }
-                    catch
-                    {
-                        // don't care
-                    }
-
-                    try
-                    {
-                        cts.Dispose();
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        // don't care
-                    }
-
-                    _pathToReceiverCancelSources.Remove(path, cts); // silently fails if missing
-
+                }
+            }
+            catch (MessagingEntityNotFoundException e)
+            {
+                Logger.Warn(e, "Receiver for path {0} shut down because the messaging entity was deleted.", path);
+            }
+            catch (OperationCanceledException e)
+            {
+                if (e.CancellationToken != token)
+                    Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
+                else
                     Logger.Debug("Receiver for path {0} shut down gracefully", path);
 
-                    throw new OperationCanceledException(token);
-                }, token);
+            }
+            catch (Exception e)
+            {
+                Logger.Fatal(e, "Receiver for path {0} shut down due to unhandled exception in the message pump; this indicates a bug in PushoverQ", path);
+            }
+            finally
+            {
+                registration.Dispose();
+            }
 
-            return receiver;
+            try
+            {
+                await RetryPolicy.ExecuteAsync(() => receiver.CloseAsync());
+            }
+            catch
+            {
+                // don't care
+            }
+
+            throw new OperationCanceledException(token);
         }
 
-        private string GetPath(string topic, string subscription)
+        private async void SpinUpReceiver(string path)
         {
-            if (topic == null) throw new ArgumentNullException("topic");
-            if (subscription == null) throw new ArgumentNullException("subscription");
+            var cts = new CancellationTokenSource();
+            var token = cts.Token;
+            _pathToReceiverCancelSources.Add(path, cts);
 
-            return topic + "/subscriptions/" + subscription;
+            // keep trying to receive until we're told to stop
+            while (!token.IsCancellationRequested)
+                await ReceiveMessages(path, token);
+
+            try
+            {
+                cts.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+                // don't care
+            }
+
+            _pathToReceiverCancelSources.Remove(path, cts); // silently fails if missing
         }
 
         /// <inheritdoc/>
@@ -541,11 +566,7 @@ namespace PushoverQ
         {
             Logger.Info("Subscribing to topic: `{0}' subscription: `{1}'", topic, subscription);
 
-            await CreateTopic(topic);
-            await CreateSubscription(topic, subscription);
-            
-            var path = GetPath(topic, subscription);
-
+            var path = SubscriptionClient.FormatSubscriptionPath(topic, subscription);
             return await Subscribe(path, handler);
         }
 
@@ -555,7 +576,7 @@ namespace PushoverQ
             Logger.Info("Subscribing to path: `{0}'", path);
 
             for (var i = _pathToReceiverCancelSources.CountValues(path); i < _settings.NumberOfReceiversPerSubscription; i++)
-                await SpinUpReceiver(path);
+                SpinUpReceiver(path);
 
             _pathToHandlers.Add(path, handler);
 
