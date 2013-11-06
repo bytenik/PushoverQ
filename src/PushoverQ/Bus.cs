@@ -176,6 +176,7 @@ namespace PushoverQ
             try
             {
                 var sender = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageSenderAsync(destination).WithCancellation(token), token);
+                sender.RetryPolicy = new NoRetry(); // use our retry policy please
 
                 var reply = await RetryPolicy.ExecuteAsync(async () =>
                 {
