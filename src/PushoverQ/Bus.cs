@@ -499,6 +499,8 @@ namespace PushoverQ
                         }
                     }
                 }
+                
+                throw new OperationCanceledException(token);
             }
             catch (MessagingEntityNotFoundException e)
             {
