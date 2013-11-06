@@ -438,8 +438,32 @@ namespace PushoverQ
                             continue;
                         }
 
+                        Stream stream;
+                        try
+                        {
+                            stream = brokeredMessage.GetBody<Stream>();
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Warn(e, "Could not turn brokered message with id {0} into a stream", brokeredMessage.MessageId);
+                            continue;
+                        }
+
                         object message;
-                        using (var stream = brokeredMessage.GetBody<Stream>()) message = _settings.Serializer.Deserialize(type, stream);
+                        try
+                        {
+                            message = _settings.Serializer.Deserialize(type, stream);
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.Warn(e, "Serializer exception while deserializing message with id {0}", brokeredMessage.MessageId);
+                            continue;
+                        }
+                        finally
+                        {
+                            if (stream != null)
+                                stream.Dispose();
+                        }
 
                         var envelope = new Envelope
                         {
