@@ -398,9 +398,7 @@ namespace PushoverQ
 
         private async Task ReceiveMessages(string path, CancellationToken token)
         {
-            await CreateMessagingEntity(path);
-
-            var receiver = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageReceiverAsync(path), token);
+            MessageReceiver receiver = null;
 
             var registration = token.Register(() =>
             {
@@ -413,8 +411,12 @@ namespace PushoverQ
                 }
             });
 
+            bool recreate = false;
+
             try
             {
+                receiver = await RetryPolicy.ExecuteAsync(() => _mf.CreateMessageReceiverAsync(path), token);
+
                 while (!token.IsCancellationRequested)
                 {
                     using (var brokeredMessage = await RetryPolicy.ExecuteAsync(() => receiver.ReceiveAsync(TimeSpan.FromMinutes(5)), token))
@@ -528,6 +530,7 @@ namespace PushoverQ
             }
             catch (MessagingEntityNotFoundException e)
             {
+                recreate = true;
                 Logger.Warn(e, "Receiver for path {0} shut down because the messaging entity was deleted.", path);
             }
             catch (OperationCanceledException e)
@@ -557,6 +560,9 @@ namespace PushoverQ
             {
                 // don't care
             }
+
+            if (recreate)
+                await CreateMessagingEntity(path);
         }
 
         private async void SpinUpReceiver(string path)
@@ -610,27 +616,29 @@ namespace PushoverQ
         {
             Logger.Info("Subscribing to path: `{0}'", path);
 
+            await CreateMessagingEntity(path);
+
             for (var i = _pathToReceiverCancelSources.CountValues(path); i < _settings.NumberOfReceiversPerSubscription; i++)
                 SpinUpReceiver(path);
 
             _pathToHandlers.Add(path, handler);
 
             return new DelegateSubscription(async () =>
+                {
+                    _pathToHandlers.Remove(path, handler);
+
+                    // if there's still other handlers, keep the receiver alive
+                    if (_pathToHandlers.CountValues(path) != 0) return;
+
+                    // shut down all receivers
+                    var cancellationSources = _pathToReceiverCancelSources[path].ToArray();
+                    foreach (var cts in cancellationSources)
                     {
-                        _pathToHandlers.Remove(path, handler);
-
-                        // if there's still other handlers, keep the receiver alive
-                        if (_pathToHandlers.CountValues(path) != 0) return;
-
-                        // shut down all receivers
-                        var cancellationSources = _pathToReceiverCancelSources[path].ToArray();
-                        foreach (var cts in cancellationSources)
-                        {
-                            cts.Cancel();
-                            cts.Dispose();
-                            _pathToReceiverCancelSources.Remove(path, cts);
-                        }
-                    });
+                        cts.Cancel();
+                        cts.Dispose();
+                        _pathToReceiverCancelSources.Remove(path, cts);
+                    }
+                });
         }
 
         private string GetTopicName(Type messageType)
