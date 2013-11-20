@@ -31,9 +31,8 @@ namespace PushoverQ
         private readonly NamespaceManager _nm;
         private readonly MessagingFactory _mf;
         private readonly SemaphoreSlim _publishSemaphore;
-        private static readonly RetryPolicy RetryPolicy
-            = new RetryPolicy<TransientErrorDetectionStrategy>(new ExponentialBackoff("Retry exponentially", int.MaxValue, TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(30), true));
-
+        readonly RetryPolicy RetryPolicy;
+    
         /// <summary>
         /// Gets the logger.
         /// </summary>
@@ -57,8 +56,12 @@ namespace PushoverQ
         {
             _settings = settings;
 
+            RetryPolicy = new RetryPolicy<TransientErrorDetectionStrategy>(new ExponentialBackoff("Retry exponentially", int.MaxValue, TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(30), true));
+            var strategy = (TransientErrorDetectionStrategy)RetryPolicy.ErrorDetectionStrategy;
+            strategy.Logger = _settings.Logger;
+
             _mf = MessagingFactory.CreateFromConnectionString(settings.ConnectionString);
-            _mf.RetryPolicy = new NoRetry(); // we retry in application logic
+            _mf.RetryPolicy = new NoRetry(); // we use our own retry logic
 
             _nm = NamespaceManager.CreateFromConnectionString(settings.ConnectionString);
             
