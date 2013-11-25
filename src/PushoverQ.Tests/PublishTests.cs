@@ -38,7 +38,8 @@ namespace PushoverQ.Tests
             connBuilder.OperationTimeout = TimeSpan.FromSeconds(10);
             connBuilder.Endpoints.Add(new UriBuilder { Scheme = "sb", Host = serverFQDN, Path = ServiceNamespace }.Uri);
             connBuilder.StsEndpoints.Add(new UriBuilder { Scheme = "https", Host = serverFQDN, Port = HttpPort, Path = ServiceNamespace }.Uri);
-            _testBus = Bus.CreateBus(cfg => cfg.WithConnectionString(@"Endpoint=sb://funnelfire-test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=ENUAYOiS9Lt3tDngyClvjzRyls5UkS8ie7aLAyjBV0s=;OperationTimeout=00:00:10").WithLogger(new TestLogger())).Result;
+            _testBus = Bus.CreateBus(cfg => cfg.WithConnectionString(connBuilder.ToString()).WithLogger(new TestLogger())).Result;
+            // _testBus = Bus.CreateBus(cfg => cfg.WithConnectionString(@"Endpoint=sb://funnelfire-test.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=ENUAYOiS9Lt3tDngyClvjzRyls5UkS8ie7aLAyjBV0s=;OperationTimeout=00:00:10").WithLogger(new TestLogger())).Result;
         }
 
         /// <summary>

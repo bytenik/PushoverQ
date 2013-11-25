@@ -114,22 +114,31 @@ namespace PushoverQ
 
                 await RetryPolicy.ExecuteAsync(async () =>
                 {
-                    var brokeredMessages = messagesWithIds.Select(mi =>
+                    var brokeredMessages = new List<BrokeredMessage>();
+                    foreach (var mi in messagesWithIds)
                     {
                         var ms = new MemoryStream(); // do not wrap this with a using statement; the BrokeredMessage owns the stream and will dispose it
                         _settings.Serializer.Serialize(mi.Message, ms);
 
                         ms.Seek(0, SeekOrigin.Begin);
-                        var brokeredMessage = new BrokeredMessage(ms, true);
-                        brokeredMessage.MessageId = mi.Id.ToString("n");
+                        if (ms.Length > 255 * 1024)
+                        {
+                            Logger.Debug(new MessageSizeException(), "Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
+                            continue;
+                        }
+
+                        var brokeredMessage = new BrokeredMessage(ms, true)
+                        {
+                            MessageId = mi.Id.ToString("n")
+                        };
                         if (visibleAfter != null)
                             brokeredMessage.ScheduledEnqueueTimeUtc = visibleAfter.Value;
                         if (expiration != null)
                             brokeredMessage.TimeToLive = expiration.Value;
 
                         brokeredMessage.ContentType = mi.Message.GetType().AssemblyQualifiedName;
-                        return brokeredMessage;
-                    }).ToArray();
+                        brokeredMessages.Add(brokeredMessage);
+                    }
 
                     try
                     {
@@ -139,7 +148,10 @@ namespace PushoverQ
                     {
                         // always dispose the brokered messages
                         foreach (var brokeredMessage in brokeredMessages)
+                        {
+                            if (brokeredMessage.Size > 256 * 1024) throw new MessageSizeException("Message was determined to be too large after send attempt, delivery not guaranteed");
                             brokeredMessage.Dispose();
+                        }
                     }
                 }, token);
 
@@ -272,24 +284,29 @@ namespace PushoverQ
                 AutoDeleteOnIdle = TimeSpan.FromMinutes(30)
             };
 
-            try
+            if (await _nm.TopicExistsAsync(name))
             {
-                await RetryPolicy.ExecuteAsync(() => _nm.CreateTopicAsync(td));
-                return;
+                try
+                {
+                    await RetryPolicy.ExecuteAsync(() => _nm.UpdateTopicAsync(td));
+                    return;
+                }
+                catch (MessagingEntityNotFoundException e)
+                {
+                    Logger.Warn(e, "Topic {0} is not found (but was just found seconds earlier)", name);
+                }
             }
-            catch (MessagingEntityAlreadyExistsException e)
+            else
             {
-                Logger.Trace(e, "Topic {0} already exists", name);
-            }
-
-            try
-            {
-                await RetryPolicy.ExecuteAsync(() => _nm.UpdateTopicAsync(td));
-                return;
-            }
-            catch (MessagingEntityNotFoundException e)
-            {
-                Logger.Warn(e, "Topic {0} is not found (but was just found seconds earlier)", name);
+                try
+                {
+                    await RetryPolicy.ExecuteAsync(() => _nm.CreateTopicAsync(td));
+                    return;
+                }
+                catch (MessagingEntityAlreadyExistsException e)
+                {
+                    Logger.Trace(e, "Topic {0} already exists", name);
+                }
             }
 
             // wtf
@@ -309,26 +326,31 @@ namespace PushoverQ
                 MaxDeliveryCount = (int)_settings.MaxDeliveryCount
             };
 
-            try
+            if (await _nm.SubscriptionExistsAsync(topic, subscription))
             {
-                await RetryPolicy.ExecuteAsync(() => _nm.CreateSubscriptionAsync(sd));
-                return;
+                try
+                {
+                    await RetryPolicy.ExecuteAsync(() => _nm.UpdateSubscriptionAsync(sd));
+                    return;
+                }
+                catch (MessagingEntityNotFoundException e)
+                {
+                    Logger.Warn(e, "Subscription {0} for topic {1} is not found (but was just found seconds earlier)", subscription, topic);
+                }
             }
-            catch (MessagingEntityAlreadyExistsException e)
+            else
             {
-                Logger.Trace(e, "Subscription {0} for topic {1} already exists", subscription, topic);
+                try
+                {
+                    await RetryPolicy.ExecuteAsync(() => _nm.CreateSubscriptionAsync(sd));
+                    return;
+                }
+                catch (MessagingEntityAlreadyExistsException e)
+                {
+                    Logger.Trace(e, "Subscription {0} for topic {1} already exists", subscription, topic);
+                }
             }
 
-            try
-            {
-                await RetryPolicy.ExecuteAsync(() => _nm.UpdateSubscriptionAsync(sd));
-                return;
-            }
-            catch (MessagingEntityNotFoundException e)
-            {
-                Logger.Warn(e, "Subscription {0} for topic {1} is not found (but was just found seconds earlier)", subscription, topic);
-            }
-            
             // wtf
             await CreateSubscription(topic, subscription);
         }
