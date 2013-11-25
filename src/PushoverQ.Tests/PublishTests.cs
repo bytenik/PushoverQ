@@ -109,31 +109,17 @@ namespace PushoverQ.Tests
         }
 
         /// <summary>
-        /// Publish a 1MB message and ensure that the message is received back.
+        /// Publish a 254KB message and ensure that the message is received back.
         /// </summary>
         /// <returns>
         /// The <see cref="Task"/>.
         /// </returns>
         [Test]
-        public async Task Publish1MBMessage()
-        {
-            await Task.Yield();
-            const int MessageSize = 256 * 1024;
-
-            Assert.Throws<MessageSizeException>(async () => await _testBus.Send(new byte[MessageSize]));
-        }
-
-        /// <summary>
-        /// Publish a 10MB message and ensure that the message is received back.
-        /// </summary>
-        /// <returns>
-        /// The <see cref="Task"/>.
-        /// </returns>
-        [Test]
-        public async Task Publish10MBMessage()
+        public async Task Publish254KBMessage()
         {
             const int MessageCountToPublish = 1;
-            const int MessageSize = 50 * 1024 * 1024;
+            const int MessageSize = 254 * 1024;
+
             var consumer = _testBus.Consume<byte[]>();
 
             var elapsed = await TimedPublishByte(MessageSize, MessageCountToPublish);
@@ -145,6 +131,42 @@ namespace PushoverQ.Tests
             Assert.IsInstanceOf<byte[]>(result, "Result is not correct type.");
             Assert.IsTrue(result.Length == MessageSize, "Result size is incorrect.");
             Assert.IsTrue(publishAverage < 2000, "Publish took too long.");
+        }
+
+        /// <summary>
+        /// Publish a 256KB message and ensure that the send fails.
+        /// </summary>
+        [Test]
+        public void Publish256KBMessage()
+        {
+            const int MessageSize = 256 * 1024;
+
+            var aggregateException = Assert.Throws<AggregateException>(() => _testBus.Send(new byte[MessageSize]).Wait(5000));
+            Assert.IsTrue(aggregateException.InnerExceptions.Any(x => x is MessageSizeException));
+        }
+
+        /// <summary>
+        /// Publish a 1MB message and ensure that the send fails.
+        /// </summary>
+        [Test]
+        public void Publish1MBMessage()
+        {
+            const int MessageSize = 1024 * 1024;
+
+            var aggregateException = Assert.Throws<AggregateException>(() => _testBus.Send(new byte[MessageSize]).Wait(5000));
+            Assert.IsTrue(aggregateException.InnerExceptions.Any(x => x is MessageSizeException));
+        }
+
+        /// <summary>
+        /// Publish a 10MB message and ensure that the send fails.
+        /// </summary>
+        [Test]
+        public void Publish10MBMessage()
+        {
+            const int MessageSize = 1024 * 1024 * 10;
+
+            var aggregateException = Assert.Throws<AggregateException>(() => _testBus.Send(new byte[MessageSize]).Wait(5000));
+            Assert.IsTrue(aggregateException.InnerExceptions.Any(x => x is MessageSizeException));
         }
 
         /// <summary>
