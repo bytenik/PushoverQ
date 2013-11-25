@@ -118,9 +118,9 @@ namespace PushoverQ.Tests
         public async Task Publish1MBMessage()
         {
             await Task.Yield();
-            const int MessageSize = 255 * 1024;
+            const int MessageSize = 256 * 1024;
 
-            await _testBus.Send(new byte[MessageSize]);
+            Assert.Throws<MessageSizeException>(async () => await _testBus.Send(new byte[MessageSize]));
         }
 
         /// <summary>

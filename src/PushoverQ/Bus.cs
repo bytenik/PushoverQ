@@ -207,6 +207,13 @@ namespace PushoverQ
                     {
                         _settings.Serializer.Serialize(message, ms);
                         ms.Seek(0, SeekOrigin.Begin);
+                        if (ms.Length > 255 * 1024)
+                        {
+                            var exceptionMessage = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
+                            if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(exceptionMessage);
+                            Logger.Debug(new MessageSizeException(), exceptionMessage);
+                            return default(T);
+                        }
 
                         var brokeredMessage = new BrokeredMessage(ms, false);
                         brokeredMessage.MessageId = messageId.ToString("n");
