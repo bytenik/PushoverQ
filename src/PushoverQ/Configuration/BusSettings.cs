@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -104,6 +105,11 @@ namespace PushoverQ.Configuration
         /// If this option is set to false, the error will simply be logged and move on.
         /// </summary>
         public bool ThrowOnOversizeMessage { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether PushoverQ should compress the contents of a message using <see cref="DeflateStream"/>.
+        /// </summary>
+        public bool CompressMessages { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BusSettings"/> class.

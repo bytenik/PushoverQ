@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Remoting.Messaging;
@@ -129,10 +130,20 @@ namespace PushoverQ
                             continue;
                         }
 
-                        var brokeredMessage = new BrokeredMessage(ms, true)
+                        BrokeredMessage brokeredMessage;
+                        if (_settings.CompressMessages)
                         {
-                            MessageId = mi.Id.ToString("n")
-                        };
+                            var outStream = new MemoryStream(); // do not wrap this with a using statement; the BrokeredMessage owns the stream and will dispose it
+                            using (var gs = new DeflateStream(outStream, CompressionLevel.Optimal))
+                                ms.CopyTo(gs);
+                            brokeredMessage = new BrokeredMessage(outStream, true);
+                        }
+                        else
+                        {
+                            brokeredMessage = new BrokeredMessage(ms, true);
+                        }
+
+                        brokeredMessage.MessageId = mi.Id.ToString("n");
                         if (visibleAfter != null)
                             brokeredMessage.ScheduledEnqueueTimeUtc = visibleAfter.Value;
                         if (expiration != null)
@@ -215,7 +226,17 @@ namespace PushoverQ
                             return default(T);
                         }
 
-                        var brokeredMessage = new BrokeredMessage(ms, false);
+                        BrokeredMessage brokeredMessage;
+                        if (_settings.CompressMessages)
+                        {
+                            var outStream = new MemoryStream(); // do not wrap this with a using statement; the BrokeredMessage owns the stream and will dispose it
+                            using (var gs = new DeflateStream(outStream, CompressionLevel.Optimal))
+                                ms.CopyTo(gs);
+                            brokeredMessage = new BrokeredMessage(outStream, true);
+                        }
+                        else
+                            brokeredMessage = new BrokeredMessage(ms, false);
+
                         brokeredMessage.MessageId = messageId.ToString("n");
                         if (visibleAfter != null)
                             brokeredMessage.ScheduledEnqueueTimeUtc = visibleAfter.Value;
@@ -483,6 +504,18 @@ namespace PushoverQ
                         Stream stream;
                         try
                         {
+                            if (_settings.CompressMessages)
+                            {
+                                stream = new MemoryStream();
+                                var cs = brokeredMessage.GetBody<Stream>();
+                                var bs = new DeflateStream(cs, CompressionMode.Decompress);
+                                bs.CopyTo(stream);
+                            }
+                            else stream = brokeredMessage.GetBody<Stream>();
+                        }
+                        catch (InvalidDataException)
+                        {
+                            // The stream may not have been compressed, happens if a switch to the setting is made on the fly.
                             stream = brokeredMessage.GetBody<Stream>();
                         }
                         catch (Exception e)
