@@ -21,9 +21,7 @@ namespace PushoverQ
         /// <summary>
         /// Initializes a new instance of the <see cref="MessageSizeException"/> class.
         /// </summary>
-        /// <param name="message">
-        /// The message.
-        /// </param>
+        /// <param name="message"> The error message. </param>
         public MessageSizeException(string message)
             : base(message)
         {

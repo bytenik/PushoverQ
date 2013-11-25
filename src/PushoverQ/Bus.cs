@@ -123,7 +123,9 @@ namespace PushoverQ
                         ms.Seek(0, SeekOrigin.Begin);
                         if (ms.Length > 255 * 1024)
                         {
-                            Logger.Debug(new MessageSizeException(), "Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
+                            var message = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
+                            if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(message);
+                            Logger.Debug(new MessageSizeException(), message);
                             continue;
                         }
 
@@ -149,7 +151,13 @@ namespace PushoverQ
                         // always dispose the brokered messages
                         foreach (var brokeredMessage in brokeredMessages)
                         {
-                            if (brokeredMessage.Size > 256 * 1024) throw new MessageSizeException("Message was determined to be too large after send attempt, delivery not guaranteed");
+                            if (brokeredMessage.Size > 255 * 1024)
+                            {
+                                var message = string.Format("Message was determined to be too large after send attempt ({0} bytes), delivery not guaranteed", brokeredMessage.Size);
+                                if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(message);
+                                Logger.Debug(new MessageSizeException(), message);
+                            }
+
                             brokeredMessage.Dispose();
                         }
                     }
