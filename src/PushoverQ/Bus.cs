@@ -123,9 +123,10 @@ namespace PushoverQ
                         ms.Seek(0, SeekOrigin.Begin);
                         if (ms.Length > 255 * 1024)
                         {
-                            var message = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
-                            if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(message);
-                            Logger.Debug(new MessageSizeException(), message);
+                            var exceptionMessage = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
+                            var ex = new MessageSizeException(exceptionMessage);
+                            if (_settings.ThrowOnOversizeMessage) throw ex;
+                            Logger.Debug(ex, exceptionMessage);
                             continue;
                         }
 
@@ -153,9 +154,10 @@ namespace PushoverQ
                         {
                             if (brokeredMessage.Size > 255 * 1024)
                             {
-                                var message = string.Format("Message was determined to be too large after send attempt ({0} bytes), delivery not guaranteed", brokeredMessage.Size);
-                                if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(message);
-                                Logger.Debug(new MessageSizeException(), message);
+                                var exceptionMessage = string.Format("Message was determined to be too large after send attempt ({0} bytes), delivery not guaranteed", brokeredMessage.Size);
+                                var ex = new MessageSizeException(exceptionMessage);
+                                if (_settings.ThrowOnOversizeMessage) throw ex;
+                                Logger.Debug(ex, exceptionMessage);
                             }
 
                             brokeredMessage.Dispose();
@@ -210,9 +212,8 @@ namespace PushoverQ
                         if (ms.Length > 255 * 1024)
                         {
                             var exceptionMessage = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
-                            if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(exceptionMessage);
-                            Logger.Debug(new MessageSizeException(), exceptionMessage);
-                            return default(T);
+                            var ex = new MessageSizeException(exceptionMessage);
+                            throw ex;
                         }
 
                         var brokeredMessage = new BrokeredMessage(ms, false);
