@@ -100,6 +100,12 @@ namespace PushoverQ.Configuration
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether to throw a <see cref="MessageSizeException"/> when a message is too large to send to the bus.
+        /// If this option is set to false, the error will simply be logged and move on.
+        /// </summary>
+        public bool ThrowOnOversizeMessage { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="BusSettings"/> class.
         /// </summary>
         public BusSettings()
@@ -114,6 +120,7 @@ namespace PushoverQ.Configuration
             RenewalThreshold = 0.5f;
             MaxDeliveryCount = 5;
             LockDuration = TimeSpan.FromSeconds(60);
+            ThrowOnOversizeMessage = true;
         }
     }
 }

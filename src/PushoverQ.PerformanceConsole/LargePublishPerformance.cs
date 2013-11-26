@@ -52,7 +52,7 @@ namespace PushoverQ.PerformanceConsole
             var random = new Random(524288);
             for (int i = 0; i < 10000; i++)
             {
-                await _bus.Send(new byte[random.Next(1024, 524288)]);
+                await _bus.Send(new byte[random.Next(1024, 254 * 1024)]);
             }
 
             SpinWait.SpinUntil(() => resultList.Count == 100);
