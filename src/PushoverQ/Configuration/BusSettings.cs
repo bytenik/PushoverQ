@@ -108,6 +108,7 @@ namespace PushoverQ.Configuration
 
         /// <summary>
         /// Gets or sets a value indicating whether PushoverQ should compress the contents of a message using <see cref="DeflateStream"/>.
+        /// Please note that enabling this disables the ability to check the message size prior to sending.
         /// </summary>
         public bool CompressMessages { get; set; }
 
@@ -127,6 +128,7 @@ namespace PushoverQ.Configuration
             MaxDeliveryCount = 5;
             LockDuration = TimeSpan.FromSeconds(60);
             ThrowOnOversizeMessage = true;
+            CompressMessages = true;
         }
     }
 }

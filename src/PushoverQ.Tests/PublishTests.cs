@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -176,7 +179,7 @@ namespace PushoverQ.Tests
         /// The <see cref="Task"/>.
         /// </returns>
         [Test]
-        public async Task Publish500StringMessages()
+        public async Task Publish500NonCompressibleStringMessages()
         {
             const int MessageCountToPublish = 500;
             var resultList = new List<string>();
@@ -186,15 +189,50 @@ namespace PushoverQ.Tests
                 return null;
             });
 
-            var elapsed = await TimedPublishManyString(MessageCountToPublish);
+            var randomBytes = new byte[10 * 1024];
+            var random = new Random();
+            random.NextBytes(randomBytes);
+            
+            var str = randomBytes.Aggregate(string.Empty, (current, randombyte) => current + (char)randombyte);
+            var elapsed = await TimedPublishManyString(MessageCountToPublish, str);
             var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
             Console.WriteLine("Time per message: {0} ms", publishAverage);
 
             SpinWait.SpinUntil(() => resultList.Count == MessageCountToPublish);
 
             Assert.IsTrue(resultList.Count == MessageCountToPublish);
-            for (int i = 0; i < MessageCountToPublish; i++)
-                Assert.Contains(i.ToString(CultureInfo.InvariantCulture), resultList, "Result does not contain expected result {0}", i.ToString(CultureInfo.InvariantCulture));
+            Assert.IsTrue(resultList.TrueForAll(x => x == string.Empty), "Result does not contain expected result {0}", string.Empty);
+            Assert.IsTrue(publishAverage < 50, "Publish took too long.");
+        }
+
+        /// <summary>
+        /// Publish 500 messages and ensure that the messages are received back.
+        /// </summary>
+        /// <returns>
+        /// The <see cref="Task"/>.
+        /// </returns>
+        [Test]
+        public async Task Publish500CompressibleStringMessages()
+        {
+            const int StrLength = (200 * 1024) / 8;
+            const int MessageCountToPublish = 500;
+            var resultList = new List<string>();
+            await _testBus.Subscribe((string s) =>
+            {
+                resultList.Add(s);
+                return null;
+            });
+
+            var str = Enumerable.Range(0, StrLength).Aggregate(string.Empty, (s, i) => s += "abcdefg ");
+
+            var elapsed = await TimedPublishManyString(MessageCountToPublish, str);
+            var publishAverage = elapsed.TotalMilliseconds / MessageCountToPublish;
+            Console.WriteLine("Time per message: {0} ms", publishAverage);
+
+            SpinWait.SpinUntil(() => resultList.Count == MessageCountToPublish);
+
+            Assert.IsTrue(resultList.Count == MessageCountToPublish);
+            Assert.IsTrue(resultList.TrueForAll(x => x == str), "Result does not contain expected result \"{0}\" repeated {1} times.", str, StrLength);
             Assert.IsTrue(publishAverage < 50, "Publish took too long.");
         }
 
@@ -250,11 +288,16 @@ namespace PushoverQ.Tests
             return sw.Elapsed;
         }
 
-        private async Task<TimeSpan> TimedPublishManyString(int count)
+        private async Task<TimeSpan> TimedPublishManyString(int count, string str)
         {
             var sw = Stopwatch.StartNew();
+            var messagesToSend = new List<string>();
             for (int i = 0; i < count; i++)
-                await _testBus.Send(i.ToString(CultureInfo.InvariantCulture));
+            {
+                messagesToSend.Add(str);
+            }
+
+            await _testBus.Send(messagesToSend);
 
             sw.Stop();
             return sw.Elapsed;

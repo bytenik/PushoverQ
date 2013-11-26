@@ -12,6 +12,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Markup;
 
 using Microsoft.Practices.TransientFaultHandling;
 using Microsoft.ServiceBus;
@@ -122,24 +123,43 @@ namespace PushoverQ
                         _settings.Serializer.Serialize(mi.Message, ms);
 
                         ms.Seek(0, SeekOrigin.Begin);
-                        if (ms.Length > 255 * 1024)
-                        {
-                            var message = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
-                            if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(message);
-                            Logger.Debug(new MessageSizeException(), message);
-                            continue;
-                        }
 
                         BrokeredMessage brokeredMessage;
                         if (_settings.CompressMessages)
                         {
-                            var outStream = new MemoryStream(); // do not wrap this with a using statement; the BrokeredMessage owns the stream and will dispose it
-                            using (var gs = new DeflateStream(outStream, CompressionLevel.Optimal))
-                                ms.CopyTo(gs);
-                            brokeredMessage = new BrokeredMessage(outStream, true);
+                            byte[] bytes;
+                            using (var os = new MemoryStream())
+                            {
+                                using (var gs = new DeflateStream(os, CompressionMode.Compress)) ms.CopyTo(gs);
+                                bytes = os.ToArray();
+                            }
+
+                            var cs = new MemoryStream(bytes.Length);  // do not wrap this with a using statement; the BrokeredMessage owns the stream and will dispose it
+                            cs.Write(bytes, 0, bytes.Length);
+
+                            cs.Seek(0, SeekOrigin.Begin);
+                            if (cs.Length > 255 * 1024)
+                            {
+                                var exceptionMessage = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
+                                if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(exceptionMessage);
+                                Logger.Debug(new MessageSizeException(), exceptionMessage);
+                                continue;
+                            }
+
+                            brokeredMessage = new BrokeredMessage(cs, true);
+
+                            ms.Dispose();
                         }
                         else
                         {
+                            if (ms.Length > 255 * 1024)
+                            {
+                                var exceptionMessage = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
+                                if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(exceptionMessage);
+                                Logger.Debug(new MessageSizeException(), exceptionMessage);
+                                continue;
+                            }
+
                             brokeredMessage = new BrokeredMessage(ms, true);
                         }
 
@@ -229,13 +249,34 @@ namespace PushoverQ
                         BrokeredMessage brokeredMessage;
                         if (_settings.CompressMessages)
                         {
-                            var outStream = new MemoryStream(); // do not wrap this with a using statement; the BrokeredMessage owns the stream and will dispose it
-                            using (var gs = new DeflateStream(outStream, CompressionLevel.Optimal))
+                            var os = new MemoryStream(); // do not wrap this with a using statement; the BrokeredMessage owns the stream and will dispose it
+                            using (var gs = new DeflateStream(os, CompressionLevel.Optimal))
+                            {
                                 ms.CopyTo(gs);
-                            brokeredMessage = new BrokeredMessage(outStream, true);
+                                gs.Close();
+                            }
+                            ms.Dispose();
+                            os.Seek(0, SeekOrigin.Begin);
+                            if (os.Length > 255 * 1024)
+                            {
+                                var exceptionMessage = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
+                                if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(exceptionMessage);
+                                Logger.Debug(new MessageSizeException(), exceptionMessage);
+                            }
+
+                            brokeredMessage = new BrokeredMessage(os, false);
                         }
                         else
+                        {
+                            if (ms.Length > 255 * 1024)
+                            {
+                                var exceptionMessage = string.Format("Message larger than maximum size of 262144 bytes. Size: {0} bytes.", ms.Length);
+                                if (_settings.ThrowOnOversizeMessage) throw new MessageSizeException(exceptionMessage);
+                                Logger.Debug(new MessageSizeException(), exceptionMessage);
+                            }
+
                             brokeredMessage = new BrokeredMessage(ms, false);
+                        }
 
                         brokeredMessage.MessageId = messageId.ToString("n");
                         if (visibleAfter != null)
@@ -501,15 +542,22 @@ namespace PushoverQ
                             continue;
                         }
 
-                        Stream stream;
+                        Stream stream = null;
                         try
                         {
                             if (_settings.CompressMessages)
                             {
+                                byte[] bytes;
                                 stream = new MemoryStream();
                                 var cs = brokeredMessage.GetBody<Stream>();
-                                var bs = new DeflateStream(cs, CompressionMode.Decompress);
-                                bs.CopyTo(stream);
+                                using (var dc = new MemoryStream())
+                                {
+                                    using (var ds = new DeflateStream(cs, CompressionMode.Decompress)) ds.CopyTo(dc);
+                                    bytes = dc.ToArray();
+                                }
+
+                                stream.Write(bytes, 0, bytes.Length);
+                                stream.Seek(0, SeekOrigin.Begin);
                             }
                             else stream = brokeredMessage.GetBody<Stream>();
                         }
