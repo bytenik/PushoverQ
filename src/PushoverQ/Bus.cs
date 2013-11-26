@@ -31,7 +31,7 @@ namespace PushoverQ
         private readonly NamespaceManager _nm;
         private readonly MessagingFactory _mf;
         private readonly SemaphoreSlim _publishSemaphore;
-        readonly RetryPolicy RetryPolicy;
+        private readonly RetryPolicy RetryPolicy;
     
         /// <summary>
         /// Gets the logger.
