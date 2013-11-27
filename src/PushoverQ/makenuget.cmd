@@ -1,1 +1,1 @@
-..\.nuget\NuGet.exe pack PushoverQ.csproj
+..\.nuget\NuGet.exe pack PushoverQ.csproj -Properties Configuration=Release
