@@ -41,3 +41,4 @@ UpgradeLog*.*
 _UpgradeReport*/
 Thumbs.db
 *.nupkg
+*.Sync*
