@@ -47,7 +47,7 @@ namespace PushoverQ
         {
             if (ex is ServerBusyException)
                 return ErrorType.RetryAndLog;
-            if (ex is TimeoutException && !(ex is TaskExtensions.NaiveTimeoutException))
+            if (ex is TimeoutException && !(ex is NaiveTimeoutException))
                 return ErrorType.RetryAndLog;
             if (ex is ServerTooBusyException)
                 return ErrorType.RetryAndLog;

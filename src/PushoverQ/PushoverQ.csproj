@@ -63,12 +63,29 @@
     <Compile Include="BusExtensions.cs" />
     <Compile Include="CompositeSubscription.cs" />
     <Compile Include="ConcurrentMultiMap.cs" />
-    <Compile Include="ConcurrentSet.cs" />
     <Compile Include="Configuration\BusConfigurator.cs" />
     <Compile Include="Configuration\BusSettings.cs" />
     <Compile Include="Consumes.cs" />
     <Compile Include="DelegateSubscription.cs" />
     <Compile Include="Envelope.cs" />
+    <Compile Include="Extensions\ConcurrentSet.cs" />
+    <Compile Include="Extensions\DateTimeExtensions.cs" />
+    <Compile Include="Extensions\EnumExtensions.cs" />
+    <Compile Include="Extensions\ExceptionExtensions.cs" />
+    <Compile Include="Extensions\IUrlFormatable.cs" />
+    <Compile Include="Extensions\LinqExtensions.cs" />
+    <Compile Include="Extensions\NaiveTimeoutException.cs" />
+    <Compile Include="Extensions\NumericExtensions.cs" />
+    <Compile Include="Extensions\RefEliminators\ImplicitUseKindFlags.cs" />
+    <Compile Include="Extensions\RefEliminators\ImplicitUseTargetFlags.cs" />
+    <Compile Include="Extensions\RefEliminators\StringFormatMethodAttribute.cs" />
+    <Compile Include="Extensions\RefEliminators\UsedImplicitly.cs" />
+    <Compile Include="Extensions\SetExtensions.cs" />
+    <Compile Include="Extensions\StringCase.cs" />
+    <Compile Include="Extensions\StringExtensions.cs" />
+    <Compile Include="Extensions\TaskEx.cs" />
+    <Compile Include="Extensions\TaskExtensions.cs" />
+    <Compile Include="Extensions\UriExtensions.cs" />
     <Compile Include="IConsumer.cs" />
     <Compile Include="ILog.cs" />
     <Compile Include="ISubscription.cs" />
@@ -79,9 +96,7 @@
     <Compile Include="IBus.cs" />
     <Compile Include="ISerializer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="StringExtensions.cs" />
     <Compile Include="SubscriptionDisposer.cs" />
-    <Compile Include="TaskExtensions.cs" />
     <Compile Include="TransientErrorDetectionStrategy.cs" />
   </ItemGroup>
   <ItemGroup>

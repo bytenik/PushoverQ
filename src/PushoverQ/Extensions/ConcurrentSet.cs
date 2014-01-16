@@ -1,14 +1,12 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PushoverQ
 {
-    class ConcurrentSet<T> : IEnumerable<T>, ISet<T>, ICollection<T>
+    internal class ConcurrentSet<T> : ISet<T>
     {
         private readonly ConcurrentDictionary<T, byte> _dictionary = new ConcurrentDictionary<T, byte>();
 
@@ -70,6 +68,9 @@ namespace PushoverQ
             get { return _dictionary.IsEmpty; }
         }
 
+        /// <summary>
+        /// Returns the collection of Keys.
+        /// </summary>
         public ICollection<T> Values
         {
             get { return _dictionary.Keys; }
@@ -163,7 +164,7 @@ namespace PushoverQ
         public bool IsProperSupersetOf(IEnumerable<T> other)
         {
             var enumerable = other as IList<T> ?? other.ToArray();
-            return this.Count != enumerable.Count && IsSupersetOf(enumerable);
+            return Count != enumerable.Count && IsSupersetOf(enumerable);
         }
 
         /// <summary>
@@ -216,11 +217,19 @@ namespace PushoverQ
             return TryAdd(item);
         }
 
+        /// <summary>
+        /// Clear the contents of the collection.
+        /// </summary>
         public void Clear()
         {
             _dictionary.Clear();
         }
 
+        /// <summary>
+        /// Checks if the item exists in the collection.
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
         public bool Contains(T item)
         {
             return _dictionary.ContainsKey(item);
@@ -229,22 +238,40 @@ namespace PushoverQ
         /// <summary>
         /// Copies the elements of the <see cref="T:System.Collections.Generic.ICollection`1"/> to an <see cref="T:System.Array"/>, starting at a particular <see cref="T:System.Array"/> index.
         /// </summary>
-        /// <param name="array">The one-dimensional <see cref="T:System.Array"/> that is the destination of the elements copied from <see cref="T:System.Collections.Generic.ICollection`1"/>. The <see cref="T:System.Array"/> must have zero-based indexing.</param><param name="arrayIndex">The zero-based index in <paramref name="array"/> at which copying begins.</param><exception cref="T:System.ArgumentNullException"><paramref name="array"/> is null.</exception><exception cref="T:System.ArgumentOutOfRangeException"><paramref name="arrayIndex"/> is less than 0.</exception><exception cref="T:System.ArgumentException"><paramref name="array"/> is multidimensional.-or-The number of elements in the source <see cref="T:System.Collections.Generic.ICollection`1"/> is greater than the available space from <paramref name="arrayIndex"/> to the end of the destination <paramref name="array"/>.-or-Type <paramref name="T"/> cannot be cast automatically to the type of the destination <paramref name="array"/>.</exception>
+        /// <param name="array">The one-dimensional <see cref="T:System.Array"/> that is the destination of the elements copied from <see cref="T:System.Collections.Generic.ICollection`1"/>. The <see cref="T:System.Array"/> must have zero-based indexing.</param>
+        /// <param name="arrayIndex">The zero-based index in <paramref name="array"/> at which copying begins.</param>
+        /// <exception cref="T:System.ArgumentNullException"><paramref name="array"/> is null.</exception>
+        /// <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="arrayIndex"/> is less than 0.</exception>
+        /// <exception cref="T:System.ArgumentException"><paramref name="array"/> is multidimensional.-or-The number of elements in the source <see cref="T:System.Collections.Generic.ICollection`1"/> is greater than the available space from <paramref name="arrayIndex"/> to the end of the destination <paramref name="array"/>.-or-Type <paramref name="T"/> cannot be cast automatically to the type of the destination <paramref name="array"/>.</exception>
         public void CopyTo(T[] array, int arrayIndex)
         {
             Values.CopyTo(array, arrayIndex);
         }
 
+        /// <summary>
+        /// Convert the collection to an array.
+        /// </summary>
+        /// <returns>The collection.</returns>
         public T[] ToArray()
         {
             return _dictionary.Keys.ToArray();
         }
 
+        /// <summary>
+        /// Try to add an item to the collection.
+        /// </summary>
+        /// <param name="item">The item to add.</param>
+        /// <returns>The result of the operation.</returns>
         public bool TryAdd(T item)
         {
             return _dictionary.TryAdd(item, default(byte));
         }
 
+        /// <summary>
+        /// Try to remove an item from the collection.
+        /// </summary>
+        /// <param name="item">The item to remove.</param>
+        /// <returns>The result of the operation.</returns>
         public bool TryRemove(T item)
         {
             byte donotcare;
